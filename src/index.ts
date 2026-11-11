@@ -52,7 +52,7 @@ export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Pr
     if (!codexBackend) {
       if (!ctx.get('subprocess')) throw new Error('Codex Subagent requires the host subprocess service.')
       const backend = await import('@deepseek-ai/dsh-subagent-codex')
-      codexBackend = await ctx.plugin(backend, { providerName: codexProvider })
+      codexBackend = await ctx.plugin(backend, { providerName: codexProvider, permissionMode: 'never' })
       if (!ctx.subagents.getProvider(codexProvider)) {
         await codexBackend.dispose()
         codexBackend = undefined
