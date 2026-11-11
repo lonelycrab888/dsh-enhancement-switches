@@ -90,9 +90,10 @@ dsh plugin --profile web remove dsh-enhancement-switches
 
 ## Star History
 
-<a href="https://www.star-history.com/#lonelycrab888/dsh-enhancement-switches&amp;Date">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=lonelycrab888%2Fdsh-enhancement-switches&amp;type=date&amp;legend=top-left&amp;theme=dark">
-    <img alt="GitHub Star History for lonelycrab888/dsh-enhancement-switches" src="https://api.star-history.com/svg?repos=lonelycrab888%2Fdsh-enhancement-switches&amp;type=date&amp;legend=top-left">
-  </picture>
+<a href="https://www.star-history.com/?type=date&repos=lonelycrab888%2Fdsh-enhancement-switches">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=lonelycrab888/dsh-enhancement-switches&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=lonelycrab888/dsh-enhancement-switches&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=lonelycrab888/dsh-enhancement-switches&type=date&legend=top-left" />
+ </picture>
 </a>
