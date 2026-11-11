@@ -11,8 +11,14 @@ import { installTeamTools } from './vendor/team-tools.ts'
 
 export const name = 'agentswitch'
 export const inject = ['agents', 'commands', 'sessionProjections', 'agentTeams', 'workflowEngine', 'subagents', 'tools', 'systemPrompt']
-export interface Config { maxRounds: number }
-export const Config = Schema.object({ maxRounds: Schema.number().step(1).min(1).default(8) })
+export interface Config {
+  maxRounds: number
+  codexModel?: string
+}
+export const Config = Schema.object({
+  maxRounds: Schema.number().step(1).min(1).default(8),
+  codexModel: Schema.string().min(1),
+})
 
 const standaloneDelegation = ['subagent', 'subagent_fork']
 const codexProvider = 'enhancement-switches-codex'
@@ -52,7 +58,10 @@ export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Pr
     if (!codexBackend) {
       if (!ctx.get('subprocess')) throw new Error('Codex Subagent requires the host subprocess service.')
       const backend = await import('@deepseek-ai/dsh-subagent-codex')
-      codexBackend = await ctx.plugin(backend, { providerName: codexProvider })
+      codexBackend = await ctx.plugin(backend, {
+        providerName: codexProvider,
+        ...(config.codexModel === undefined ? {} : { model: config.codexModel }),
+      })
       if (!ctx.subagents.getProvider(codexProvider)) {
         await codexBackend.dispose()
         codexBackend = undefined

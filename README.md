@@ -81,6 +81,16 @@ Team 成员跟随根会话的 Teams 开关。开启时，当前会话和团队�
 
 Codex Subagent 开启后，当前根会话可使用 `subagent_codex`，团队成员和普通子智能体不会继承该工具。Harness 在调用工具时才启动 Codex，沿用本机 Codex 登录与配置。每次调用都是一次独立委派，Codex 收到任务描述和工作目录。首次使用前请在本机登录 Codex。
 
+如需为会话开关指定模型，在对应 profile 的 `cordis.patch.yml` 中给 `agentswitch` 添加 `codexModel`，然后重新加载插件或重启 Harness。请填写当前 Codex 账号支持的模型。省略此项时，模型由本机 Codex 配置决定。
+
+```yaml
+- id: agentswitch
+  config:
+    codexModel: "<账号支持的 Codex 模型>"
+```
+
+如果委派在 `stage: turn` 报 `category: product-error`，可用本机 Codex CLI 测试同一模型。若 CLI 返回 `model_not_found`，请改用当前账号支持的模型。官方全局插件的模型和审批配置属于独立的后端实例，会话开关使用官方默认审批模式 `never`。
+
 ## 卸载
 
 桌面端可在插件页禁用或卸载。Web CLI 使用：

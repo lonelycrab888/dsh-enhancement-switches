@@ -81,6 +81,16 @@ Team members follow the Teams setting of the root conversation. With Teams on, t
 
 With Codex Subagent on, the current root conversation gets the `subagent_codex` tool. Team members and ordinary subagents do not inherit it. Harness starts Codex when it calls the tool, using your local Codex sign-in and configuration. Each call delegates a single task with its instructions and working directory. Sign in to Codex locally before your first call.
 
+To select a model for the conversation switch, add `codexModel` to the `agentswitch` entry in the profile's `cordis.patch.yml`, then reload the plugin or restart Harness. Use a model supported by your Codex account. When omitted, native Codex configuration selects the model.
+
+```yaml
+- id: agentswitch
+  config:
+    codexModel: "<model supported by your Codex account>"
+```
+
+If a delegation reports `stage: turn` and `category: product-error`, test the same model with the local Codex CLI. If the CLI reports `model_not_found`, select a model supported by your account. The official global plugin has its own backend instance and settings. The conversation switch uses the official default approval mode, `never`.
+
 ## Uninstall
 
 Disable or uninstall the plugin from the desktop Plugins panel. For Web CLI, run the following command.
