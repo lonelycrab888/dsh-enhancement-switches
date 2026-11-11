@@ -27,7 +27,10 @@
 
 ## 安装
 
-先在 Harness 的插件页关闭官方 **Ralph Loop** 和 **Agent Teams** 全局插件。增强开关会复用官方实现，按对话提供相应工具。若装过旧名称的版本，请先在对应 profile 中卸载旧版。
+> [!IMPORTANT]
+> **启用增强开关前，请先在 Harness 的插件页手动关闭官方 Ralph Loop 和 Agent Teams 两个全局插件。** 增强开关会复用官方实现，按对话提供相应工具。
+
+若装过旧名称的版本，请先在对应 profile 中卸载旧版。
 
 ### 桌面端
 
@@ -39,7 +42,7 @@ git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#main
 
 如果安装日志显示 GitHub 在下载某个 npm 依赖时返回 404，请检查 **安装源** 是否选成了 GitHub 仓库地址，并切回 **npm 官方源**。Git 地址用于获取插件，npm 源用于下载依赖。
 
-安装完成后，在插件页启用 **增强开关**。
+安装完成后，确认上述两个官方插件均已关闭，再在插件页启用 **增强开关**。
 
 ### Web CLI
 

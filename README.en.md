@@ -27,7 +27,10 @@ Changing a switch takes no model call. With both switches off, the plugin leaves
 
 ## Installation
 
-In the Harness Plugins panel, disable the official global **Ralph Loop** and **Agent Teams** plugins before installing Enhancement Switches. Enhancement Switches reuses the official implementations and makes their tools available per conversation. If you installed a version under an older package name, uninstall it from the corresponding profile first.
+> [!IMPORTANT]
+> **Before enabling Enhancement Switches, manually disable both official global plugins, Ralph Loop and Agent Teams, in the Harness Plugins panel.** Enhancement Switches reuses their implementations and makes the tools available per conversation.
+
+If you installed a version under an older package name, uninstall it from the corresponding profile first.
 
 ### Desktop
 
@@ -39,7 +42,7 @@ git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#main
 
 If the install log shows GitHub returning a 404 for an npm dependency, check the installation source and switch it back to the **official npm registry**. The Git URL locates the plugin, while the npm registry serves its dependencies.
 
-Once installation finishes, enable **Enhancement Switches** in the Plugins panel.
+Once installation finishes, confirm that both official plugins are disabled, then enable **Enhancement Switches** in the Plugins panel.
 
 ### Web CLI
 
