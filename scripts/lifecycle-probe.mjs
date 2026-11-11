@@ -33,19 +33,23 @@ export function apply(ctx) {
       if (phase === 'enabled') {
         await command('ralph on')
         await command('teams on')
+        await command('codex on')
         result.on = await snapshot()
         assert.ok(result.on.tools.some(tool => tool.name === 'ralph'))
         assert.ok(result.on.tools.some(tool => tool.name === 'spawn_teammate'))
+        assert.ok(result.on.tools.some(tool => tool.name === 'subagent_codex'))
         for (const name of ['subagent', 'subagent_fork']) {
           assert.ok(result.initial.tools.some(tool => tool.name === name))
           assert.ok(!result.on.tools.some(tool => tool.name === name))
         }
         await command('ralph off')
         await command('teams off')
+        await command('codex off')
         result.off = await snapshot()
         // Leave durable selections ON so disabling/uninstalling must suppress them.
         await command('ralph on')
         await command('teams on')
+        await command('codex on')
       }
       await save(result)
     } finally { await handle.dispose() }

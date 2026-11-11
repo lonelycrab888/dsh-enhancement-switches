@@ -55,7 +55,7 @@ const disabled = await capture('disabled')
 cli(['plugin', '--profile', 'web', 'remove', 'dsh-enhancement-switches'])
 const uninstalled = await capture('uninstalled')
 // Prompts are captured before any model turn: no generated content or variable time normalization.
-for (const [label, value] of [['enabled default off', enabled.initial], ['both switches off', enabled.off], ['disabled', disabled.initial], ['uninstalled', uninstalled.initial]]) {
+for (const [label, value] of [['enabled default off', enabled.initial], ['all switches off', enabled.off], ['disabled', disabled.initial], ['uninstalled', uninstalled.initial]]) {
   assert.deepEqual(value.tools, baseline.initial.tools, `${label}: tool schemas differ from native host`)
   assert.deepEqual(value.prompt, baseline.initial.prompt, `${label}: prompt differs from native host`)
 }

@@ -1,7 +1,7 @@
 {
   "name": "dsh-enhancement-switches",
-  "version": "0.1.1",
-  "description": "Per-conversation Ralph Loop and Agent Teams switches for DeepSeek Harness.",
+  "version": "0.1.2",
+  "description": "Per-conversation Ralph Loop, Agent Teams, and Codex Subagent switches for DeepSeek Harness.",
   "license": "MIT",
   "type": "module",
   "main": "lib/index.js",
@@ -99,6 +99,8 @@
     }
   },
   "dependencies": {
+    "@deepseek-ai/dsh-subagent-codex": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-tool-subagent": "0.2.2-rc.1",
     "zod": "4.6.6"
   },
   "devDependencies": {

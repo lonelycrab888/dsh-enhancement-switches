@@ -6,6 +6,13 @@ interface Props {
   useProjection(key: 'agentswitch'): SwitchView | undefined
   choose(feature: Feature, enabled: boolean): Promise<void>
 }
+
+const buttons = {
+  ralph: { label: 'Ralph Loop', title: '为当前对话开放 Ralph 工具。请在消息中明确要求迭代任务。关闭后，已开始的调用可继续完成，使用停止按钮取消。' },
+  teams: { label: 'Agent Teams', title: '为当前对话及其团队成员开放协作工具。关闭后，已开始的工作可继续完成。' },
+  codex: { label: 'Codex Subagent', title: '让当前对话可以把单次任务交给 Codex。开启开关不会启动 Codex。' },
+} satisfies Record<Feature, { label: string; title: string }>
+
 export function Switches({ useProjection, choose }: Props) {
   const state = useProjection('agentswitch')
   const [busy, setBusy] = useState(false)
@@ -20,15 +27,13 @@ export function Switches({ useProjection, choose }: Props) {
     finally { setBusy(false) }
   }
   return <div className="dsh-agentswitch" aria-busy={busy}>
-    {(['ralph', 'teams'] as const).map(feature => <button
+    {(Object.keys(buttons) as Feature[]).map(feature => <button
       key={feature} type="button" role="switch" aria-checked={state[feature]}
-      aria-label={feature === 'ralph' ? 'Ralph Loop' : 'Agent Teams'}
-      title={feature === 'ralph'
-        ? '为当前对话开放 Ralph 工具。请在消息中明确要求迭代任务。关闭后，已开始的调用可继续完成，使用停止按钮取消。'
-        : '为当前对话及其团队成员开放协作工具。关闭后，已开始的工作可继续完成。'}
+      aria-label={buttons[feature].label}
+      title={buttons[feature].title}
       disabled={busy} onClick={() => void change(feature)}>
       <span className="dsh-agentswitch-track"><span /></span>
-      {feature === 'ralph' ? 'Ralph Loop' : 'Agent Teams'}
+      {buttons[feature].label}
     </button>)}
     {error && <span role="alert" className="dsh-agentswitch-error">{error}</span>}
   </div>

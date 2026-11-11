@@ -4,7 +4,7 @@
 
 > **改一行文案，也要让 Ralph Loop 跑上几轮？修个小问题，也要召集整支 Agent Team？**
 
-给 DeepSeek Harness 的对话输入框加上两个独立开关。平时保持关闭，遇到值得反复验证的修复再开 **Ralph Loop**，遇到可以并行分工的任务再开 **Agent Teams**。其他对话照常进行。
+给 DeepSeek Harness 的对话输入框加上三个独立开关：**Ralph Loop** 用于反复验证，**Agent Teams** 用于团队分工，**Codex Subagent** 用于把一项任务交给 Codex。每个对话单独保存设置。
 
 **已验证版本：DeepSeek Harness `0.2.2-rc.1`** · 桌面端和 Web 可用
 
@@ -12,23 +12,24 @@
 
 ![DeepSeek Harness 输入框上方有两个开关：Ralph Loop 灰色关闭，Agent Teams 蓝色开启](assets/conversation-switches.png)
 
-*图中只开启了 Agent Teams。蓝色表示开启，灰色表示关闭。*
+*截图展示前两个开关。蓝色表示开启，灰色表示关闭。*
 
 1. **选择工作区。** 打开空白首页时，先选工作区。会话建立后，输入框上方就会显示开关，发第一条消息前就能设置。
-2. **按任务打开开关。** 两个开关可以单独开启，也可以同时开启。新对话和独立分叉默认关闭，回到原对话时会恢复之前的选择。
+2. **按任务打开开关。** 三个开关可以单独开启，也可以同时开启。新对话和独立分叉默认关闭，回到原对话时会恢复之前的选择。
 3. **发出具体任务。** 开关只负责让工具在当前对话可用。开启后，在消息里告诉 Agent 你希望它怎么做。
 
 | 开关 | 适合什么时候用 | 可以这样说 |
 | --- | --- | --- |
 | **Ralph Loop** | 修复需要反复尝试和验证，适合让新 Agent 逐轮接手 | “用 Ralph Loop 修复这个问题，每轮跑测试，最多 3 轮。” |
 | **Agent Teams** | 有几项可以并行推进的工作，需要队友和共享任务板 | “用 Agent Teams 并行检查前端和后端，最后汇总发现。” |
+| **Codex Subagent** | 希望 Codex 在当前工作区执行一次独立任务 | “让 Codex 子智能体检查这次改动，列出可能的回归。” |
 
-开关操作本身无需调用模型。两项都关闭时，插件不会在该会话注册对应的工具和提示词。启用后的 token 用量取决于实际的任务、迭代轮数和团队活动。关闭开关前已开始执行的工作可以继续完成；要中止，请使用 Harness 的停止控制。
+开关操作本身无需调用模型。三个开关都关闭时，插件不会在该会话注册对应的工具和提示词。启用后的 token 用量取决于实际任务。关闭开关前已开始执行的工作可以继续完成。如需中止，请使用 Harness 的停止控制。
 
 ## 安装
 
 > [!IMPORTANT]
-> **启用增强开关前，请先在 Harness 的插件页手动关闭官方 Ralph Loop 和 Agent Teams 两个全局插件。** 增强开关会复用官方实现，按对话提供相应工具。
+> **启用增强开关前，请先在 Harness 的插件页手动关闭官方 Ralph Loop 和 Agent Teams 两个全局插件。** 如果已启用官方 Codex Subagent 全局插件，也请将其关闭。增强开关会复用官方实现，按对话提供相应工具。
 
 若装过旧名称的版本，请先在对应 profile 中卸载旧版。
 
@@ -42,7 +43,7 @@ git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#main
 
 如果安装日志显示 GitHub 在下载某个 npm 依赖时返回 404，请检查 **安装源** 是否选成了 GitHub 仓库地址，并切回 **npm 官方源**。Git 地址用于获取插件，npm 源用于下载依赖。
 
-安装完成后，确认上述两个官方插件均已关闭，再在插件页启用 **增强开关**。
+安装完成后，确认上述官方全局插件均已关闭，再在插件页启用 **增强开关**。
 
 ### Web CLI
 
@@ -64,6 +65,8 @@ dsh web
 /agentswitch ralph off
 /agentswitch teams on
 /agentswitch teams off
+/agentswitch codex on
+/agentswitch codex off
 ```
 
 Ralph 默认最多 **8 轮**，每轮可能包含多次模型调用。要更改上限，在对应 profile 的 `cordis.patch.yml` 中覆盖以下配置，再重新加载插件或重启宿主：
@@ -75,6 +78,8 @@ Ralph 默认最多 **8 轮**，每轮可能包含多次模型调用。要更改�
 ```
 
 Team 成员跟随根会话的 Teams 开关。开启时，当前会话和团队成员通过 `spawn_teammate` 直接委派，普通的 `subagent` 和 `subagent_fork` 会从工具列表隐藏。关闭后恢复预设提供的普通委派和控制工具，可用原来的 Agent ID 继续管理切换前创建的普通子智能体。团队任务和成员记录会保留，再开启即可访问。
+
+Codex Subagent 开启后，当前根会话可使用 `subagent_codex`，团队成员和普通子智能体不会继承该工具。Harness 在调用工具时才启动 Codex，沿用本机 Codex 登录与配置。每次调用都是一次独立委派，Codex 收到任务描述和工作目录。首次使用前请在本机登录 Codex。
 
 ## 卸载
 

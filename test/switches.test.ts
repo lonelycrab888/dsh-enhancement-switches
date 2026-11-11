@@ -178,4 +178,10 @@ describe('session switches using the DSH 0.2.2 runtime', () => {
     const done = { seq: 1, type: 'command/done', data: { commandId: 'x', kind: 'error' } } as SessionEvent
     expect(projection.apply(started, done).ralph).toBe(false)
   })
+
+  it('defaults Codex to off when reading an existing two-switch checkpoint', () => {
+    const old = { ralph: true, teams: true, child: false, inherited: 0, pending: [] }
+    const restored = projection.stateSchema.parse(old)
+    expect(projection.wire.view(restored)).toEqual({ ralph: true, teams: true, codex: false, child: false })
+  })
 })

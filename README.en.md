@@ -4,7 +4,7 @@
 
 > **Does a one-line copy edit need several rounds of Ralph Loop? Does a small fix need a whole Agent Team?**
 
-`dsh-enhancement-switches` adds two independent switches above the DeepSeek Harness message box. Turn on **Ralph Loop** for fixes that need repeated testing, or **Agent Teams** for work that can run in parallel. Each conversation saves its own settings.
+`dsh-enhancement-switches` adds three independent switches above the DeepSeek Harness message box. Use **Ralph Loop** for repeated testing, **Agent Teams** for parallel work, and **Codex Subagent** to delegate a task to Codex. Each conversation saves its own settings.
 
 **Tested with DeepSeek Harness `0.2.2-rc.1`** · Desktop and Web
 
@@ -12,23 +12,24 @@
 
 ![Two switches above the DeepSeek Harness message box. Ralph Loop is gray and off. Agent Teams is blue and on.](assets/conversation-switches.png)
 
-*In this example, Agent Teams is on. Blue means on and gray means off.*
+*This screenshot shows the first two switches. Blue means on and gray means off.*
 
 1. **Choose a workspace.** If you're on the blank home screen, choose a workspace to start a conversation. The switches appear above the message box before you send your first message.
-2. **Choose what the task needs.** Turn on either switch or both. Both are off by default in new conversations and independent forks. Reopening a conversation restores its saved settings.
+2. **Choose what the task needs.** Turn on any combination of switches. All three are off by default in new conversations and independent forks. Reopening a conversation restores its saved settings.
 3. **Tell the agent what to do.** The switches make the corresponding tools available in that conversation. Use your message to ask for the workflow you want.
 
 | Switch | When to use it | Example prompt |
 | --- | --- | --- |
 | **Ralph Loop** | A fix needs repeated attempts and verification, with a fresh agent taking each round | “Use Ralph Loop to fix this issue. Run the tests after each round and stop after at most three rounds.” |
 | **Agent Teams** | Several parts of a task can run in parallel with teammates and a shared task board | “Use Agent Teams to review the frontend and backend in parallel, then summarize the findings.” |
+| **Codex Subagent** | Codex can handle a self-contained task in the current workspace | “Ask the Codex subagent to review this change for potential regressions.” |
 
-Changing a switch takes no model call. With both switches off, the plugin leaves the corresponding tools and prompts out of that conversation. When enabled, token use depends on the task, the number of rounds, and team activity. Work already in progress can continue after you turn a switch off. Use Harness's stop control to cancel it.
+Changing a switch takes no model call. With all three switches off, the plugin leaves the corresponding tools and prompts out of that conversation. Token use depends on the work you delegate. Work already in progress can continue after you turn a switch off. Use Harness's stop control to cancel it.
 
 ## Installation
 
 > [!IMPORTANT]
-> **Before enabling Enhancement Switches, manually disable both official global plugins, Ralph Loop and Agent Teams, in the Harness Plugins panel.** Enhancement Switches reuses their implementations and makes the tools available per conversation.
+> **Before enabling Enhancement Switches, manually disable the official global Ralph Loop and Agent Teams plugins in the Harness Plugins panel.** If the official global Codex Subagent plugin is enabled, disable it too. Enhancement Switches reuses the official implementations and makes the tools available per conversation.
 
 If you installed a version under an older package name, uninstall it from the corresponding profile first.
 
@@ -42,7 +43,7 @@ git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#main
 
 If the install log shows GitHub returning a 404 for an npm dependency, check the installation source and switch it back to the **official npm registry**. The Git URL locates the plugin, while the npm registry serves its dependencies.
 
-Once installation finishes, confirm that both official plugins are disabled, then enable **Enhancement Switches** in the Plugins panel.
+Once installation finishes, confirm that the official global plugins listed above are disabled, then enable **Enhancement Switches** in the Plugins panel.
 
 ### Web CLI
 
@@ -64,6 +65,8 @@ You can also enter these commands in the message box. Harness updates the conver
 /agentswitch ralph off
 /agentswitch teams on
 /agentswitch teams off
+/agentswitch codex on
+/agentswitch codex off
 ```
 
 Ralph has a default limit of **8 rounds**, and each round may make several model calls. To change the limit, override `maxRounds` in the profile's `cordis.patch.yml`, then reload the plugin or restart Harness.
@@ -75,6 +78,8 @@ Ralph has a default limit of **8 rounds**, and each round may make several model
 ```
 
 Team members follow the Teams setting of the root conversation. With Teams on, the root and its teammates delegate directly through `spawn_teammate`. The ordinary `subagent` and `subagent_fork` tools are hidden. Turning Teams off restores the preset's delegation and control tools, so you can manage previously created ordinary subagents using their original Agent IDs. The task board and member records are available again when you turn Teams back on.
+
+With Codex Subagent on, the current root conversation gets the `subagent_codex` tool. Team members and ordinary subagents do not inherit it. Harness starts Codex when it calls the tool, using your local Codex sign-in and configuration. Each call delegates a single task with its instructions and working directory. Sign in to Codex locally before your first call.
 
 ## Uninstall
 

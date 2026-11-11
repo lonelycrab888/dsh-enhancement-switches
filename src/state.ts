@@ -2,8 +2,9 @@ import { z } from 'zod'
 import type { SessionEvent, SessionHeader, SessionLogOffset } from '@deepseek-ai/dsh-session'
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
 
-export type Feature = 'ralph' | 'teams'
-export interface Selection { ralph: boolean; teams: boolean }
+const features = ['ralph', 'teams', 'codex'] as const
+export type Feature = typeof features[number]
+export interface Selection { ralph: boolean; teams: boolean; codex: boolean }
 export interface SwitchView extends Selection { child: boolean }
 export interface SwitchState extends SwitchView {
   inherited: number
@@ -15,7 +16,7 @@ declare module '@deepseek-ai/dsh-session-projection/types' {
 }
 
 export function parseSelection(input: string): { feature: Feature; enabled: boolean } | undefined {
-  const match = /^(ralph|teams)\s+(on|off)$/.exec(input.trim())
+  const match = /^(ralph|teams|codex)\s+(on|off)$/.exec(input.trim())
   if (!match) return undefined
   return { feature: match[1] as Feature, enabled: match[2] === 'on' }
 }
@@ -30,11 +31,11 @@ export const projection: HostProjection & { wire: HostWire } = {
   key: 'agentswitch' as const,
   stateVersion: 1,
   stateSchema: z.object({
-    ralph: z.boolean(), teams: z.boolean(), child: z.boolean(), inherited: z.number(),
-    pending: z.array(z.object({ id: z.string(), feature: z.enum(['ralph', 'teams']), enabled: z.boolean() })),
+    ralph: z.boolean(), teams: z.boolean(), codex: z.boolean().default(false), child: z.boolean(), inherited: z.number(),
+    pending: z.array(z.object({ id: z.string(), feature: z.enum(features), enabled: z.boolean() })),
   }) as unknown as HostProjection['stateSchema'],
   init: (header: SessionHeader, inherited: SessionLogOffset): SwitchState => ({
-    ralph: false, teams: false, child: header.origin === 'subagent', inherited, pending: [],
+    ralph: false, teams: false, codex: false, child: header.origin === 'subagent', inherited, pending: [],
   }),
   apply(state: SwitchState, event: SessionEvent): SwitchState {
     if (event.seq < state.inherited) return state
@@ -51,7 +52,7 @@ export const projection: HostProjection & { wire: HostWire } = {
     return next
   },
   wire: {
-    viewSchema: z.object({ ralph: z.boolean(), teams: z.boolean(), child: z.boolean() }) as unknown as HostWire['viewSchema'],
-    view: ({ ralph, teams, child }: SwitchState): SwitchView => ({ ralph, teams, child }),
+    viewSchema: z.object({ ralph: z.boolean(), teams: z.boolean(), codex: z.boolean(), child: z.boolean() }) as unknown as HostWire['viewSchema'],
+    view: ({ ralph, teams, codex, child }: SwitchState): SwitchView => ({ ralph, teams, codex, child }),
   },
 }

@@ -1,8 +1,10 @@
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection';
-export type Feature = 'ralph' | 'teams';
+declare const features: readonly ["ralph", "teams", "codex"];
+export type Feature = typeof features[number];
 export interface Selection {
     ralph: boolean;
     teams: boolean;
+    codex: boolean;
 }
 export interface SwitchView extends Selection {
     child: boolean;

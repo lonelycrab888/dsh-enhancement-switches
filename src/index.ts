@@ -1,4 +1,4 @@
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context, Fiber } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-commands'
@@ -6,7 +6,7 @@ import type {} from '@deepseek-ai/dsh-session-projection'
 import type {} from '@deepseek-ai/dsh-experimental-agent-team'
 import { createScope, type Scope } from '@deepseek-ai/dsh-scope'
 import * as Ralph from '@deepseek-ai/dsh-tool-ralph'
-import { projection, parseSelection, type Selection } from './state.ts'
+import { projection, parseSelection, type Feature, type Selection } from './state.ts'
 import { installTeamTools } from './vendor/team-tools.ts'
 
 export const name = 'agentswitch'
@@ -15,12 +15,15 @@ export interface Config { maxRounds: number }
 export const Config = Schema.object({ maxRounds: Schema.number().step(1).min(1).default(8) })
 
 const standaloneDelegation = ['subagent', 'subagent_fork']
+const codexProvider = 'enhancement-switches-codex'
+const codexToolName = 'subagent_codex'
 
 /** Scope ownership keeps global bundles and ordinary presets independent. */
 export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Promise<void> {
   const saved = await ctx.sessionProjections.register(projection)
-  const mounted = new Map<Agent, { ralph?: Scope; teams?: () => void }>()
-  const pending = new Map<string, { agent: Agent; feature: 'ralph' | 'teams'; enabled: boolean }>()
+  const mounted = new Map<Agent, { ralph?: Scope; teams?: () => void; codex?: Scope }>()
+  const pending = new Map<string, { agent: Agent; feature: Feature; enabled: boolean }>()
+  let codexBackend: Fiber | undefined
   let stopped = false
   let queue: Promise<void> = Promise.resolve()
 
@@ -39,6 +42,33 @@ export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Pr
 
   function ralphEnabled(agent: Agent): boolean {
     return !stopped && agent.session.header.origin !== 'subagent' && selected(agent).ralph
+  }
+
+  function codexEnabled(agent: Agent): boolean {
+    return !stopped && agent.session.header.origin !== 'subagent' && selected(agent).codex
+  }
+
+  async function mountCodex(agent: Agent): Promise<Scope> {
+    if (!codexBackend) {
+      if (!ctx.get('subprocess')) throw new Error('Codex Subagent requires the host subprocess service.')
+      const backend = await import('@deepseek-ai/dsh-subagent-codex')
+      codexBackend = await ctx.plugin(backend, { providerName: codexProvider })
+      if (!ctx.subagents.getProvider(codexProvider)) {
+        await codexBackend.dispose()
+        codexBackend = undefined
+        throw new Error('Codex Subagent could not register its provider.')
+      }
+    }
+    if (!ctx.subagents.getProvider(codexProvider)) throw new Error('Codex Subagent provider is unavailable.')
+    const tool = await import('@deepseek-ai/dsh-tool-subagent')
+    const scope = createScope(ctx, agent)
+    try {
+      await tool.apply(scope.ctx, { provider: codexProvider, toolName: codexToolName, maxDepth: 'provider-managed' })
+      return scope
+    } catch (error) {
+      await scope.dispose()
+      throw error
+    }
   }
 
   function visibleStandaloneDelegation(agent: Agent): string[] {
@@ -91,6 +121,15 @@ export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Pr
         delete entry.teams
       }
       if (teams && !entry.teams) entry.teams = mountTeams(agent)
+      if (codexEnabled(agent) && !entry.codex) {
+        const scope = await mountCodex(agent)
+        if (stopped || mounted.get(agent) !== entry) await scope.dispose()
+        else entry.codex = scope
+      } else if (!codexEnabled(agent) && entry.codex) {
+        const scope = entry.codex
+        delete entry.codex
+        await scope.dispose()
+      }
     }
   }
 
@@ -104,15 +143,18 @@ export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Pr
     if (execution.name === 'ralph' && (!execution.agent || !ralphEnabled(execution.agent))) {
       return 'Ralph Loop is disabled in this conversation.'
     }
+    if (execution.name === codexToolName && (!execution.agent || !codexEnabled(execution.agent))) {
+      return 'Codex Subagent is disabled in this conversation.'
+    }
   })
 
   ctx.commands.register({
     name: 'agentswitch',
-    description: 'Enable Ralph Loop or Agent Teams for this conversation',
-    input: { hint: '<ralph|teams> <on|off>' },
+    description: 'Enable Ralph Loop, Agent Teams, or Codex Subagent for this conversation',
+    input: { hint: '<ralph|teams|codex> <on|off>' },
     async handler({ agent, commandId, rawInput }) {
       const selection = parseSelection(rawInput)
-      if (!selection) return { kind: 'error', text: 'Usage: /agentswitch <ralph|teams> <on|off>' }
+      if (!selection) return { kind: 'error', text: 'Usage: /agentswitch <ralph|teams|codex> <on|off>' }
       if (agent.session.header.origin === 'subagent') {
         return { kind: 'error', text: 'Change these switches in the root conversation.' }
       }
@@ -141,6 +183,7 @@ export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Pr
     mounted.delete(agent)
     entry?.teams?.()
     await entry?.ralph?.dispose()
+    await entry?.codex?.dispose()
   })
   ctx.effect(() => async () => {
     stopped = true
@@ -148,6 +191,7 @@ export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Pr
     for (const entry of mounted.values()) {
       entry.teams?.()
       await entry.ralph?.dispose()
+      await entry.codex?.dispose()
     }
     mounted.clear()
     pending.clear()
