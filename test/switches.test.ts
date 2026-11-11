@@ -15,7 +15,7 @@ import { projection } from '../src/state.ts'
 const contexts: Context[] = []
 afterEach(async () => { for (const ctx of contexts.splice(0)) await ctx.fiber.dispose() })
 
-async function setup() {
+async function setup(config: Plugin.Config = { maxRounds: 8 }) {
   const ctx = new Context()
   contexts.push(ctx)
   await ctx.plugin(SessionStore)
@@ -28,7 +28,7 @@ async function setup() {
   // Only the Team domain is stubbed. Commands, session logs, scoped tool
   // registration, guards, projections and the Native executor are real DSH.
   await ctx.plugin((inner: Context) => {
-    inner.provide('subagents', {})
+    inner.provide('subagents', { getProvider: (name: string) => name === 'codex' ? { name } : undefined })
     inner.provide('workflowEngine', { start() { throw new Error('workflow not expected in this test') } })
     inner.provide('agentTeams', {
       tryMembership(agent: Agent) {
@@ -40,7 +40,7 @@ async function setup() {
       listTasks() { return [] },
     })
   })
-  const fiber = await ctx.plugin(Plugin, { maxRounds: 8 })
+  const fiber = await ctx.plugin(Plugin, config)
   return { ctx, fiber }
 }
 
@@ -73,6 +73,44 @@ async function command(ctx: Context, value: Agent, args: string) {
 const names = (ctx: Context, value: Agent) => ctx.tools.schemas(value).map(tool => tool.name)
 
 describe('session switches using the DSH 0.2.2 runtime', () => {
+
+  it('gates the existing official tool and restores it on plugin disposal', async () => {
+    const { ctx, fiber } = await setup()
+    const original = { name: 'subagent_codex', description: 'Official shared tool', parameters: {}, output: { schema: { type: 'string' }, render: () => [{ type: 'text', text: 'completed' }] }, execute: async () => 'completed' }
+    ctx.tools.register(original as never)
+    const a = await agent(ctx, 'codex-lead')
+    const b = await agent(ctx, 'codex-other')
+    const child = await agent(ctx, 'codex-child', [], a)
+    expect(names(ctx, a)).not.toContain('subagent_codex')
+    await command(ctx, a, 'codex on')
+    expect(ctx.tools.get('subagent_codex', a)).toBe(original)
+    expect(names(ctx, a).filter(name => name === 'subagent_codex')).toHaveLength(1)
+    expect(names(ctx, b)).not.toContain('subagent_codex')
+    expect(names(ctx, child)).not.toContain('subagent_codex')
+    await command(ctx, a, 'codex off')
+    expect(names(ctx, a)).not.toContain('subagent_codex')
+    await fiber.dispose()
+    expect(ctx.tools.get('subagent_codex', a)).toBe(original)
+    expect(ctx.tools.get('subagent_codex', b)).toBe(original)
+  })
+
+  it('rolls back Codex activation when the official provider is absent', async () => {
+    const { ctx } = await setup()
+    ctx.subagents.getProvider = () => undefined
+    const a = await agent(ctx, 'missing-codex')
+    await expect(command(ctx, a, 'codex on')).rejects.toThrow('Enable the official Codex Subagent')
+    expect(names(ctx, a)).not.toContain('subagent_codex')
+    await boundary(ctx, a)
+    expect(names(ctx, a)).not.toContain('subagent_codex')
+  })
+
+  it('explains migration of the former private-provider model setting', async () => {
+    const { ctx } = await setup({ maxRounds: 8, codexModel: 'old-model' })
+    const a = await agent(ctx, 'old-codex-config')
+    await expect(command(ctx, a, 'codex on')).rejects.toThrow('subagent-codex.config.model')
+    expect(names(ctx, a)).not.toContain('subagent_codex')
+  })
+
   it('starts off and keeps simultaneous conversations isolated', async () => {
     const { ctx } = await setup()
     const a = await agent(ctx, 'a')

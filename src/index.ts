@@ -1,4 +1,4 @@
-import type { Context, Fiber } from '@deepseek-ai/cordis'
+import type { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-commands'
@@ -21,27 +21,14 @@ export const Config = Schema.object({
 })
 
 const standaloneDelegation = ['subagent', 'subagent_fork']
-const codexProvider = 'enhancement-switches-codex'
+const codexProvider = 'codex'
 const codexToolName = 'subagent_codex'
-
-function officialCodexModel(ctx: Context): string | undefined {
-  const loader = ctx.get('loader') as {
-    entries(): Iterable<{ options: { id?: string; name?: string; config?: { model?: unknown } } }>
-  } | undefined
-  if (!loader) return undefined
-  for (const { options } of loader.entries()) {
-    if (options.id !== 'subagent-codex' || options.name !== '@deepseek-ai/dsh-subagent-codex') continue
-    const model = options.config?.model
-    if (typeof model === 'string' && model.trim()) return model
-  }
-}
 
 /** Scope ownership keeps global bundles and ordinary presets independent. */
 export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Promise<void> {
   const saved = await ctx.sessionProjections.register(projection)
-  const mounted = new Map<Agent, { ralph?: Scope; teams?: () => void; codex?: Scope }>()
+  const mounted = new Map<Agent, { ralph?: Scope; teams?: () => void; codex?: Scope; restoreCodex?: () => void }>()
   const pending = new Map<string, { agent: Agent; feature: Feature; enabled: boolean }>()
-  let codexBackend: Fiber | undefined
   let stopped = false
   let queue: Promise<void> = Promise.resolve()
 
@@ -67,25 +54,18 @@ export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Pr
   }
 
   async function mountCodex(agent: Agent): Promise<Scope> {
-    if (!codexBackend) {
-      if (!ctx.get('subprocess')) throw new Error('Codex Subagent requires the host subprocess service.')
-      const backend = await import('@deepseek-ai/dsh-subagent-codex')
-      const model = config.codexModel ?? officialCodexModel(ctx)
-      codexBackend = await ctx.plugin(backend, {
-        providerName: codexProvider,
-        ...(model === undefined ? {} : { model }),
-      })
-      if (!ctx.subagents.getProvider(codexProvider)) {
-        await codexBackend.dispose()
-        codexBackend = undefined
-        throw new Error('Codex Subagent could not register its provider.')
-      }
+    if (config.codexModel !== undefined) {
+      throw new Error('Move agentswitch.codexModel to subagent-codex.config.model, then remove codexModel. Codex now uses the official shared provider.')
     }
-    if (!ctx.subagents.getProvider(codexProvider)) throw new Error('Codex Subagent provider is unavailable.')
+    if (!ctx.subagents.getProvider(codexProvider)) {
+      throw new Error('Enable the official Codex Subagent plugin first. Enhancement Switches uses its codex provider.')
+    }
     const tool = await import('@deepseek-ai/dsh-tool-subagent')
     const scope = createScope(ctx, agent)
     try {
-      await tool.apply(scope.ctx, { provider: codexProvider, toolName: codexToolName, maxDepth: 'provider-managed' })
+      if (!ctx.tools.get(codexToolName, agent)) {
+        await tool.apply(scope.ctx, { provider: codexProvider, toolName: codexToolName, maxDepth: 'provider-managed' })
+      }
       return scope
     } catch (error) {
       await scope.dispose()
@@ -143,6 +123,10 @@ export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Pr
         delete entry.teams
       }
       if (teams && !entry.teams) entry.teams = mountTeams(agent)
+      if (codexEnabled(agent) && entry.restoreCodex) {
+        entry.restoreCodex()
+        delete entry.restoreCodex
+      }
       if (codexEnabled(agent) && !entry.codex) {
         const scope = await mountCodex(agent)
         if (stopped || mounted.get(agent) !== entry) await scope.dispose()
@@ -151,6 +135,9 @@ export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Pr
         const scope = entry.codex
         delete entry.codex
         await scope.dispose()
+      }
+      if (!codexEnabled(agent) && !entry.restoreCodex && ctx.tools.get(codexToolName)) {
+        entry.restoreCodex = agent.ctx.tools.restrict({ deny: [codexToolName] })
       }
     }
   }
@@ -206,6 +193,7 @@ export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Pr
     entry?.teams?.()
     await entry?.ralph?.dispose()
     await entry?.codex?.dispose()
+    entry?.restoreCodex?.()
   })
   ctx.effect(() => async () => {
     stopped = true
@@ -214,6 +202,7 @@ export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Pr
       entry.teams?.()
       await entry.ralph?.dispose()
       await entry.codex?.dispose()
+      entry.restoreCodex?.()
     }
     mounted.clear()
     pending.clear()

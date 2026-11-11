@@ -1,6 +1,7 @@
 // Loaded only by scripts/smoke.mjs in an isolated DSH_HOME. All model responses
 // are deterministic and local. The host loads the official Team, Ralph and Codex integrations.
 import assert from 'node:assert/strict'
+import * as Codex from '@deepseek-ai/dsh-subagent-codex'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -37,7 +38,8 @@ class Mock extends LlmAdapter {
   }
 }
 
-export function apply(ctx) {
+export async function apply(ctx) {
+  await ctx.plugin(Codex, { providerName: 'codex' })
   const adapter = new Mock()
   ctx.llm.registerAdapter(['agentswitch-test'], adapter)
   ctx.effect(() => {
@@ -78,6 +80,8 @@ export function apply(ctx) {
       const b = await make('agentswitch-smoke-b')
       assert.ok(!names(a).includes('ralph') && !names(a).includes('spawn_teammate'))
       assert.ok(!names(a).includes('subagent_codex'))
+      const officialProvider = ctx.subagents.getProvider('codex')
+      assert.ok(officialProvider)
       assert.equal(ctx.subagents.getProvider('enhancement-switches-codex'), undefined)
       assert.deepEqual(standalone(a), standaloneNames)
       const ordinary = await call(a, 'subagent', { description: 'Ordinary child before switching', prompt: 'Reply with a short local test confirmation' })
@@ -86,12 +90,12 @@ export function apply(ctx) {
       await command(a, 'ralph on')
       await command(a, 'teams on')
       await command(a, 'codex on')
-      assert.equal(ctx.subagents.getProvider('enhancement-switches-codex')?.inheritsParentContext, false)
+      assert.equal(ctx.subagents.getProvider('codex')?.inheritsParentContext, false)
       assert.ok(names(a).includes('subagent_codex'))
       assert.ok(!names(b).includes('subagent_codex'))
       assert.equal(ctx.tools.get('subagent_codex'), undefined)
       assert.equal(ctx.tools.checkGuards({ name: 'subagent_codex', agent: a }), undefined)
-      checks.push('Official Codex provider loads lazily and exposes its tool only in the selected root')
+      checks.push('Shared official Codex provider exposes its tool only in the selected root')
       assert.ok(names(a).includes('ralph') && names(a).includes('spawn_teammate'))
       assert.ok(!names(b).includes('ralph') && !names(b).includes('spawn_teammate'))
       assert.deepEqual(standalone(a), [])
@@ -120,6 +124,7 @@ export function apply(ctx) {
       assert.equal(ralph.agentsStarted, 1)
       checks.push('Official Ralph workflow completes one fresh-agent round')
       await command(a, 'codex off')
+      assert.equal(ctx.subagents.getProvider('codex'), officialProvider)
       assert.ok(!names(a).includes('subagent_codex'))
       assert.match(ctx.tools.checkGuards({ name: 'subagent_codex', agent: a }), /disabled/)
       assert.ok(names(a).includes('spawn_teammate'))

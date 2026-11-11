@@ -1,11 +1,13 @@
 // A local, model-free probe loaded by lifecycle.mjs into the real host.
 import assert from 'node:assert/strict'
+import * as Codex from '@deepseek-ai/dsh-subagent-codex'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { SessionId } from '@deepseek-ai/dsh-session'
 
 export const inject = ['agents', 'agentPresets', 'commands', 'tools', 'systemPrompt', 'sessionPersistence']
-export function apply(ctx) {
+export async function apply(ctx) {
+  await ctx.plugin(Codex, { providerName: 'codex' })
   ctx.effect(() => {
     const timer = setTimeout(() => void run().catch(error => save({ ok: false, error: error.stack })), 1500)
     return () => clearTimeout(timer)

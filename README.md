@@ -29,7 +29,7 @@
 ## 安装
 
 > [!IMPORTANT]
-> **启用增强开关前，请先在 Harness 的插件页手动关闭官方 Ralph Loop 和 Agent Teams 两个全局插件。** 如果已启用官方 Codex Subagent 全局插件，也请将其关闭。增强开关会复用官方实现，按对话提供相应工具。
+> **启用增强开关前，请先在 Harness 的插件页手动关闭官方 Ralph Loop 和 Agent Teams 两个全局插件。** 使用 Codex 开关时，请保持官方 Codex Subagent 插件启用。增强开关按会话控制其工具可见性。增强开关会复用官方实现，按对话提供相应工具。
 
 若装过旧名称的版本，请先在对应 profile 中卸载旧版。
 
@@ -43,7 +43,7 @@ git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#main
 
 如果安装日志显示 GitHub 在下载某个 npm 依赖时返回 404，请检查 **安装源** 是否选成了 GitHub 仓库地址，并切回 **npm 官方源**。Git 地址用于获取插件，npm 源用于下载依赖。
 
-安装完成后，确认上述官方全局插件均已关闭，再在插件页启用 **增强开关**。
+安装完成后，确认官方 Ralph Loop 和 Agent Teams 插件均已关闭，再在插件页启用 **增强开关**。
 
 ### Web CLI
 
@@ -81,15 +81,17 @@ Team 成员跟随根会话的 Teams 开关。开启时，当前会话和团队�
 
 Codex Subagent 开启后，当前根会话可使用 `subagent_codex`，团队成员和普通子智能体不会继承该工具。Harness 在调用工具时才启动 Codex，沿用本机 Codex 登录与配置。每次调用都是一次独立委派，Codex 收到任务描述和工作目录。首次使用前请在本机登录 Codex。
 
-如需为会话开关指定模型，在对应 profile 的 `cordis.patch.yml` 中给 `agentswitch` 添加 `codexModel`，然后重启 Harness。请填写当前 Codex 账号支持的模型。省略此项时，开关优先采用同一 profile 中官方 `subagent-codex` 条目配置的 `model`，其次使用本机 Codex 配置。
+Codex 开关复用官方的 `codex` provider 和已有的 `subagent_codex` 工具。官方插件需要保持启用，模型、环境变量、审批模式和进程退出设置都由官方 `subagent-codex` 条目管理。开关关闭时，当前会话隐藏该工具并拒绝新调用，已经开始的委派由官方后端继续管理。禁用或卸载增强开关后，官方工具恢复全局可见。
+
+升级旧配置时，请将 `agentswitch.config.codexModel` 移到官方条目的 `config.model`，然后删除旧的 `codexModel` 字段并重启 Harness。保留旧字段时，开启 Codex 会提示迁移，避免静默采用其他模型。
 
 ```yaml
-- id: agentswitch
+- id: subagent-codex
   config:
-    codexModel: "<账号支持的 Codex 模型>"
+    model: "<账号支持的 Codex 模型>"
 ```
 
-如果委派在 `stage: turn` 报 `category: product-error`，可用本机 Codex CLI 测试同一模型。若 CLI 返回 `model_not_found`，请改用当前账号支持的模型。会话开关只读取官方条目的模型，审批模式使用官方默认值 `never`。
+如果委派在 `stage: turn` 报 `category: product-error`，请通过官方 Codex 插件做相同任务的对照。该诊断是官方后端返回的分类，可能涵盖多个原始错误。开关复用官方后端的诊断和二进制版本。
 
 ## 卸载
 

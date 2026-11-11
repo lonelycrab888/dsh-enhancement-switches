@@ -29,7 +29,7 @@ Changing a switch takes no model call. With all three switches off, the plugin l
 ## Installation
 
 > [!IMPORTANT]
-> **Before enabling Enhancement Switches, manually disable the official global Ralph Loop and Agent Teams plugins in the Harness Plugins panel.** If the official global Codex Subagent plugin is enabled, disable it too. Enhancement Switches reuses the official implementations and makes the tools available per conversation.
+> **Before enabling Enhancement Switches, manually disable the official global Ralph Loop and Agent Teams plugins in the Harness Plugins panel.** Keep the official Codex Subagent plugin enabled to use the Codex switch. Enhancement Switches controls its tool visibility per conversation. Enhancement Switches reuses the official implementations and makes the tools available per conversation.
 
 If you installed a version under an older package name, uninstall it from the corresponding profile first.
 
@@ -43,7 +43,7 @@ git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#main
 
 If the install log shows GitHub returning a 404 for an npm dependency, check the installation source and switch it back to the **official npm registry**. The Git URL locates the plugin, while the npm registry serves its dependencies.
 
-Once installation finishes, confirm that the official global plugins listed above are disabled, then enable **Enhancement Switches** in the Plugins panel.
+Once installation finishes, confirm that the official Ralph Loop and Agent Teams plugins are disabled, then enable **Enhancement Switches** in the Plugins panel.
 
 ### Web CLI
 
@@ -81,15 +81,17 @@ Team members follow the Teams setting of the root conversation. With Teams on, t
 
 With Codex Subagent on, the current root conversation gets the `subagent_codex` tool. Team members and ordinary subagents do not inherit it. Harness starts Codex when it calls the tool, using your local Codex sign-in and configuration. Each call delegates a single task with its instructions and working directory. Sign in to Codex locally before your first call.
 
-To select a model for the conversation switch, add `codexModel` to the `agentswitch` entry in the profile's `cordis.patch.yml`, then restart Harness. Use a model supported by your Codex account. When omitted, the switch looks for a configured `model` on the official `subagent-codex` entry in the same profile, then falls back to native Codex configuration.
+The Codex switch reuses the official `codex` provider and existing `subagent_codex` tool. Keep the official plugin enabled. Configure its model, environment, permission mode, and process shutdown settings on the official `subagent-codex` entry. Turning the switch off hides the tool and blocks new calls in that conversation. The official backend continues managing work already started. Disabling or uninstalling Enhancement Switches restores the official tool's global visibility.
+
+To migrate an older configuration, move `agentswitch.config.codexModel` to `subagent-codex.config.model`, remove the old `codexModel` field, and restart Harness. Enabling Codex with the old field present returns migration instructions.
 
 ```yaml
-- id: agentswitch
+- id: subagent-codex
   config:
-    codexModel: "<model supported by your Codex account>"
+    model: "<model supported by your Codex account>"
 ```
 
-If a delegation reports `stage: turn` and `category: product-error`, test the same model with the local Codex CLI. If the CLI reports `model_not_found`, select a model supported by your account. The switch reads only the model from the official entry and uses the official default approval mode, `never`.
+For `stage: turn` and `category: product-error`, compare the same task through the official Codex plugin. This official diagnostic category can represent several underlying errors. The switch shares the official backend's diagnostics and binary version.
 
 ## Uninstall
 
