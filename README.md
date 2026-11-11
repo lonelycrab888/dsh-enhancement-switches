@@ -89,7 +89,6 @@ dsh plugin --profile web remove dsh-enhancement-switches
 [MIT License](LICENSE) · [第三方代码署名](THIRD_PARTY_NOTICES.md)
 
 ## Star History
-## Star History
 
 <a href="https://www.star-history.com/?type=date&repos=lonelycrab888%2Fdsh-enhancement-switches">
  <picture>
