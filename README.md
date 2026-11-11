@@ -31,11 +31,13 @@
 
 ### 桌面端
 
-打开 **插件 → 添加插件**，输入仓库地址：
+打开 **插件 → 添加插件**，将 **安装源** 选为 **npm 官方源**，然后把下面的 Git 地址粘贴到 **包名或地址**：
 
 ```text
-https://github.com/lonelycrab888/dsh-enhancement-switches
+git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#main
 ```
+
+如果安装日志显示 GitHub 在下载某个 npm 依赖时返回 404，请检查 **安装源** 是否选成了 GitHub 仓库地址，并切回 **npm 官方源**。Git 地址用于获取插件，npm 源用于下载依赖。
 
 也可以填入本地源码目录或 `.tgz` 安装包的绝对路径。安装完成后启用插件。
 

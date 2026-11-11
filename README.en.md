@@ -31,11 +31,13 @@ In the Harness Plugins panel, disable the official global **Ralph Loop** and **A
 
 ### Desktop
 
-Open **Plugins → Add Plugin** and enter the repository URL.
+Open **Plugins → Add Plugin**, select the **official npm registry** as the installation source, and paste the Git URL into **Package name or address**.
 
 ```text
-https://github.com/lonelycrab888/dsh-enhancement-switches
+git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#main
 ```
+
+If the install log shows GitHub returning a 404 for an npm dependency, check the installation source and switch it back to the **official npm registry**. The Git URL locates the plugin, while the npm registry serves its dependencies.
 
 You can also enter the absolute path to a local checkout or a `.tgz` package. Enable the plugin once installation finishes.
 
