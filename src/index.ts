@@ -24,6 +24,18 @@ const standaloneDelegation = ['subagent', 'subagent_fork']
 const codexProvider = 'enhancement-switches-codex'
 const codexToolName = 'subagent_codex'
 
+function officialCodexModel(ctx: Context): string | undefined {
+  const loader = ctx.get('loader') as {
+    entries(): Iterable<{ options: { id?: string; name?: string; config?: { model?: unknown } } }>
+  } | undefined
+  if (!loader) return undefined
+  for (const { options } of loader.entries()) {
+    if (options.id !== 'subagent-codex' || options.name !== '@deepseek-ai/dsh-subagent-codex') continue
+    const model = options.config?.model
+    if (typeof model === 'string' && model.trim()) return model
+  }
+}
+
 /** Scope ownership keeps global bundles and ordinary presets independent. */
 export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Promise<void> {
   const saved = await ctx.sessionProjections.register(projection)
@@ -58,9 +70,10 @@ export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Pr
     if (!codexBackend) {
       if (!ctx.get('subprocess')) throw new Error('Codex Subagent requires the host subprocess service.')
       const backend = await import('@deepseek-ai/dsh-subagent-codex')
+      const model = config.codexModel ?? officialCodexModel(ctx)
       codexBackend = await ctx.plugin(backend, {
         providerName: codexProvider,
-        ...(config.codexModel === undefined ? {} : { model: config.codexModel }),
+        ...(model === undefined ? {} : { model }),
       })
       if (!ctx.subagents.getProvider(codexProvider)) {
         await codexBackend.dispose()
