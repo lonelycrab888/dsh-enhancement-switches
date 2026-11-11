@@ -29,7 +29,19 @@ Changing a switch takes no model call. With all three switches off, the plugin l
 ## Installation
 
 > [!IMPORTANT]
-> **Before enabling Enhancement Switches, manually disable the official global Ralph Loop and Agent Teams plugins in the Harness Plugins panel.** Keep the official Codex Subagent plugin enabled to use the Codex switch. Enhancement Switches controls its tool visibility per conversation. Enhancement Switches reuses the official implementations and makes the tools available per conversation.
+> **Starting with v0.1.3, the official Codex Subagent plugin must be enabled before you can use the Codex conversation switch.** Enhancement Switches reuses the official Codex backend and controls tool availability per conversation.
+
+Configure the Harness Plugins panel as follows:
+
+| Plugin or switch | Setting | Purpose |
+| --- | --- | --- |
+| Official global Ralph Loop plugin | Disabled | Enhancement Switches provides per-conversation control |
+| Official global Agent Teams plugin | Disabled | Enhancement Switches provides per-conversation control |
+| Official Codex Subagent plugin | Required when using Codex | Provides the Codex backend and manages model, permission, and environment settings |
+| Enhancement Switches plugin | Enabled | Adds the three conversation switches |
+| Codex switch in a conversation | On or off as needed | Controls whether that conversation can call the Codex subagent |
+
+**The official Codex plugin is not required if you only use the Ralph Loop or Agent Teams switches.** While Enhancement Switches is active, each conversation's switch controls Codex tool availability even when the official Codex plugin is enabled. New conversations default to off.
 
 If you installed a version under an older package name, uninstall it from the corresponding profile first.
 
