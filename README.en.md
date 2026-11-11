@@ -39,18 +39,18 @@ git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#main
 
 If the install log shows GitHub returning a 404 for an npm dependency, check the installation source and switch it back to the **official npm registry**. The Git URL locates the plugin, while the npm registry serves its dependencies.
 
-You can also enter the absolute path to a local checkout or a `.tgz` package. Enable the plugin once installation finishes.
+Once installation finishes, enable **Enhancement Switches** in the Plugins panel.
 
 ### Web CLI
 
-Replace the path below with the absolute path to your local checkout or `.tgz` package.
+Install directly from GitHub, then start the Web interface.
 
 ```sh
-dsh plugin --profile web add /absolute/path/to/dsh-enhancement-switches
+dsh plugin --profile web add 'git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#main'
 dsh web
 ```
 
-The repository includes the compiled files in `lib/` for direct installation. Run `npm pack` from the project directory to make a `.tgz` package.
+The repository includes the compiled files in `lib/` for direct installation.
 
 ## Commands and configuration
 

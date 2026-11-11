@@ -39,18 +39,18 @@ git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#main
 
 如果安装日志显示 GitHub 在下载某个 npm 依赖时返回 404，请检查 **安装源** 是否选成了 GitHub 仓库地址，并切回 **npm 官方源**。Git 地址用于获取插件，npm 源用于下载依赖。
 
-也可以填入本地源码目录或 `.tgz` 安装包的绝对路径。安装完成后启用插件。
+安装完成后，在插件页启用 **增强开关**。
 
 ### Web CLI
 
-将命令中的路径替换为本地源码目录，也可以使用 `.tgz` 安装包的绝对路径：
+直接从 GitHub 安装并启动 Web 端：
 
 ```sh
-dsh plugin --profile web add /absolute/path/to/dsh-enhancement-switches
+dsh plugin --profile web add 'git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#main'
 dsh web
 ```
 
-仓库包含 `lib/` 构建产物，可以直接安装。要自己生成 `.tgz`，在项目目录运行 `npm pack`。
+仓库已包含 `lib/` 构建产物，可以直接安装。
 
 ## 命令与配置
 
