@@ -36,6 +36,10 @@ export function apply(ctx) {
         result.on = await snapshot()
         assert.ok(result.on.tools.some(tool => tool.name === 'ralph'))
         assert.ok(result.on.tools.some(tool => tool.name === 'spawn_teammate'))
+        for (const name of ['subagent', 'subagent_fork']) {
+          assert.ok(result.initial.tools.some(tool => tool.name === name))
+          assert.ok(!result.on.tools.some(tool => tool.name === name))
+        }
         await command('ralph off')
         await command('teams off')
         result.off = await snapshot()

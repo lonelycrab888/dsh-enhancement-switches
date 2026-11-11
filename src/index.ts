@@ -14,6 +14,8 @@ export const inject = ['agents', 'commands', 'sessionProjections', 'agentTeams',
 export interface Config { maxRounds: number }
 export const Config = Schema.object({ maxRounds: Schema.number().step(1).min(1).default(8) })
 
+const standaloneDelegation = ['subagent', 'subagent_fork']
+
 /** Scope ownership keeps global bundles and ordinary presets independent. */
 export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Promise<void> {
   const saved = await ctx.sessionProjections.register(projection)
@@ -39,6 +41,29 @@ export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Pr
     return !stopped && agent.session.header.origin !== 'subagent' && selected(agent).ralph
   }
 
+  function visibleStandaloneDelegation(agent: Agent): string[] {
+    return standaloneDelegation.filter(name => ctx.tools.get(name, agent) !== undefined)
+  }
+
+  function mountTeams(agent: Agent): () => void {
+    const deny = visibleStandaloneDelegation(agent)
+    const restore = deny.length > 0 ? agent.ctx.tools.restrict({ deny }) : undefined
+    try {
+      const unmount = installTeamTools(agent, ctx,
+        { interrupt: true, freshProvider: 'spawn', forkProvider: 'fork' }, () => teamEnabled(agent))
+      return () => {
+        try {
+          unmount()
+        } finally {
+          restore?.()
+        }
+      }
+    } catch (error) {
+      restore?.()
+      throw error
+    }
+  }
+
   async function reconcile(): Promise<void> {
     for (const agent of ctx.agents.list()) {
       if (!mounted.has(agent)) mounted.set(agent, {})
@@ -59,13 +84,13 @@ export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Pr
         delete entry.ralph
         await scope.dispose()
       }
-      if (teamEnabled(agent) && !entry.teams) {
-        entry.teams = installTeamTools(agent, ctx,
-          { interrupt: true, freshProvider: 'spawn', forkProvider: 'fork' }, () => teamEnabled(agent))
-      } else if (!teamEnabled(agent) && entry.teams) {
+      const teams = teamEnabled(agent)
+      // A preset or provider change can expose a delegation tool that was absent at mount time.
+      if (entry.teams && (!teams || visibleStandaloneDelegation(agent).length > 0)) {
         entry.teams()
         delete entry.teams
       }
+      if (teams && !entry.teams) entry.teams = mountTeams(agent)
     }
   }
 

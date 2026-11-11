@@ -74,7 +74,7 @@ Ralph has a default limit of **8 rounds**, and each round may make several model
     maxRounds: 8
 ```
 
-Team members follow the Teams setting of the root conversation. Turning Teams off preserves the task board and member records, which you can access again by turning it back on. Regular subagents are controlled by the active agent preset.
+Team members follow the Teams setting of the root conversation. With Teams on, the root and its teammates delegate directly through `spawn_teammate`. The ordinary `subagent` and `subagent_fork` tools are hidden. Turning Teams off restores the preset's delegation and control tools, so you can manage previously created ordinary subagents using their original Agent IDs. The task board and member records are available again when you turn Teams back on.
 
 ## Uninstall
 
