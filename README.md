@@ -6,7 +6,7 @@
 
 给 DeepSeek Harness 的对话输入框加上三个独立开关：**Ralph Loop** 用于反复验证，**Agent Teams** 用于团队分工，**Codex Subagent** 用于把一项任务交给 Codex。每个对话单独保存设置。
 
-**已验证版本：DeepSeek Harness `0.2.2-rc.1`** · 桌面端和 Web 可用
+**适用版本：DeepSeek Harness `0.2.2-rc.2`**（增强开关 v0.1.4）
 
 ## 这样用
 
@@ -24,7 +24,7 @@
 | **Agent Teams** | 有几项可以并行推进的工作，需要队友和共享任务板 | “用 Agent Teams 并行检查前端和后端，最后汇总发现。” |
 | **Codex Subagent** | 希望 Codex 在当前工作区执行一次独立任务 | “让 Codex 子智能体检查这次改动，列出可能的回归。” |
 
-开关操作本身无需调用模型。三个开关都关闭时，插件不会在该会话注册对应的工具和提示词。启用后的 token 用量取决于实际任务。关闭开关前已开始执行的工作可以继续完成。如需中止，请使用 Harness 的停止控制。
+开关操作本身无需调用模型。三个开关都关闭时，普通子代理工具仍可使用。启用后的 token 用量取决于实际任务。关闭开关前已开始执行的工作可以继续完成。如需中止，请使用 Harness 的停止控制。
 
 ## 安装
 
@@ -36,7 +36,7 @@
 | 插件或开关 | 设置 | 作用 |
 | --- | --- | --- |
 | 官方 Ralph Loop 全局插件 | 关闭 | 由增强开关提供对话级控制 |
-| 官方 Agent Teams 全局插件 | 关闭 | 由增强开关提供对话级控制 |
+| 宿主内置 Agent Teams | 保留 | 与输入框和模型菜单的 Teams 开关共用会话状态 |
 | 官方 Codex Subagent 插件 | 使用 Codex 时必须开启 | 提供 Codex 后端，管理模型、权限和环境配置 |
 | 增强开关插件 | 开启 | 在对话界面提供三个开关 |
 | 对话中的 Codex 开关 | 按需开启或关闭 | 控制当前对话能否调用 Codex 子智能体 |
@@ -45,28 +45,53 @@
 
 若装过旧名称的版本，请先在对应 profile 中卸载旧版。
 
-### 桌面端
+### 桌面端自动选择兼容版本
 
-打开 **插件 → 添加插件**，将 **安装源** 选为 **npm 官方源**，然后把下面的 Git 地址粘贴到 **包名或地址**：
+在 **插件 → 实验性插件** 启用 **自定义插件索引**，然后打开 **发现 → 添加索引源**，填入：
 
 ```text
-git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#main
+https://raw.githubusercontent.com/lonelycrab888/dsh-enhancement-switches/main/plugin-index.json
 ```
 
-如果安装日志显示 GitHub 在下载某个 npm 依赖时返回 404，请检查 **安装源** 是否选成了 GitHub 仓库地址，并切回 **npm 官方源**。Git 地址用于获取插件，npm 源用于下载依赖。
+选择 **增强开关** 并安装。Harness 会推荐索引中兼容当前宿主的最高版本。安装时使用对应标签指向的 Git 提交。
 
-安装完成后，确认官方 Ralph Loop 和 Agent Teams 插件均已关闭，再在插件页启用 **增强开关**。
+### 按版本手动安装
 
-### Web CLI
+在 **插件 → 添加插件** 选择 **npm 官方源**，将对应地址填入 **包名或地址**：
 
-直接从 GitHub 安装并启动 Web 端：
+| DeepSeek Harness | 增强开关 | Git 安装地址 |
+| --- | --- | --- |
+| `0.2.2-rc.2` | [v0.1.4](https://github.com/lonelycrab888/dsh-enhancement-switches/releases/tag/v0.1.4) | `git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.1.4` |
+| `0.2.2-rc.1` | [v0.1.3](https://github.com/lonelycrab888/dsh-enhancement-switches/releases/tag/v0.1.3) | `git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.1.3` |
+
+`#main` 安装主分支当前提交。需要自动选择兼容版本时，请使用上面的「发现」索引。rc.2 用户也可以从 v0.1.4 Release 下载 `.tgz`，把本机绝对路径填入 **包名或地址**。
+
+安装后按桌面端提示重启，并在插件页确认增强开关已启用。若官方 Ralph Loop 全局插件已开启，请关闭它以使用对话级开关。
+
+### Web 和本地开发
+
+Web 端可直接安装固定标签。下面的命令适用于 rc.2：
 
 ```sh
-dsh plugin --profile web add 'git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#main'
+dsh plugin --profile web add 'git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.1.4'
 dsh web
 ```
 
-仓库已包含 `lib/` 构建产物，可以直接安装。
+在插件仓库目录运行：
+
+```sh
+npm ci
+npm run build
+npm pack
+```
+
+Web 端在同一目录运行：
+
+```sh
+dsh plugin --profile web add "$PWD/dsh-enhancement-switches-0.1.4.tgz"
+```
+
+发布新版本时，在创建版本标签后运行 `node scripts/update-plugin-index.mjs`，然后提交更新后的索引。
 
 ## 命令与配置
 
@@ -89,7 +114,9 @@ Ralph 默认最多 **8 轮**，每轮可能包含多次模型调用。要更改�
     maxRounds: 8
 ```
 
-Team 成员跟随根会话的 Teams 开关。开启时，当前会话和团队成员通过 `spawn_teammate` 直接委派，普通的 `subagent` 和 `subagent_fork` 会从工具列表隐藏。关闭后恢复预设提供的普通委派和控制工具，可用原来的 Agent ID 继续管理切换前创建的普通子智能体。团队任务和成员记录会保留，再开启即可访问。
+输入框和模型与推理等级菜单中的 Teams 开关操作同一个根会话设置。开启后，整棵子代理树可使用四个共享任务工具。成员通过原生 `subagent` 或 `subagent_fork` 创建，可用 `name` 命名，再用 `send_message({ agent, message })` 协作。关闭 Teams 后，原生委派和通信仍可用，再次开启会恢复共享任务板。
+
+首次打开旧会话时，会把 v0.1.3 保存的 Teams 选择迁移到宿主；已有的原生 Teams 选择优先。旧实验版的成员历史仍由宿主读取。旧插件的 `agentswitch-team-service`、`agentswitch-team-ui` 自定义覆盖可以移除，原生 Team 服务已由宿主加载。
 
 Codex Subagent 开启后，当前根会话可使用 `subagent_codex`，团队成员和普通子智能体不会继承该工具。Harness 在调用工具时才启动 Codex，沿用本机 Codex 登录与配置。每次调用都是一次独立委派，Codex 收到任务描述和工作目录。首次使用前请在本机登录 Codex。
 
@@ -113,7 +140,7 @@ Codex 开关复用官方的 `codex` provider 和已有的 `subagent_codex` 工�
 dsh plugin --profile web remove dsh-enhancement-switches
 ```
 
-卸载后，历史消息和已保存的开关选择会保留。此前关闭的官方全局插件可在插件页手动恢复。
+卸载后，历史消息和已保存的开关选择会保留。Agent Teams 仍可通过宿主的模型与推理等级菜单控制。
 
 [MIT License](LICENSE) · [第三方代码署名](THIRD_PARTY_NOTICES.md)
 

@@ -1,13 +1,16 @@
 import { z } from 'zod'
 import type { SessionEvent, SessionHeader, SessionLogOffset } from '@deepseek-ai/dsh-session'
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
+import type {} from '@deepseek-ai/dsh-agent-team'
 
 const features = ['ralph', 'teams', 'codex'] as const
 export type Feature = typeof features[number]
-export interface Selection { ralph: boolean; teams: boolean; codex: boolean }
+export interface Selection { ralph: boolean; codex: boolean }
 export interface SwitchView extends Selection { child: boolean }
 export interface SwitchState extends SwitchView {
   inherited: number
+  legacyTeams?: boolean
+  hasNativeTeamMode: boolean
   pending: Array<{ id: string; feature: Feature; enabled: boolean }>
 }
 
@@ -21,38 +24,37 @@ export function parseSelection(input: string): { feature: Feature; enabled: bool
   return { feature: match[1] as Feature, enabled: match[2] === 'on' }
 }
 
-type HostProjection = ProjectionDefinition<'agentswitch', SwitchState>
-type HostWire = NonNullable<HostProjection['wire']>
-// DSH pins an older Zod minor. Its registry only calls schema.parse(), which
-// is compatible with our patched Zod. Bridge only the two schema objects to
-// avoid TypeScript recursively comparing two different Zod class hierarchies.
-// Both persisted-state and wire parsing are exercised by the real-host tests.
-export const projection: HostProjection & { wire: HostWire } = {
+export const projection = {
   key: 'agentswitch' as const,
-  stateVersion: 1,
+  stateVersion: 2,
   stateSchema: z.object({
-    ralph: z.boolean(), teams: z.boolean(), codex: z.boolean().default(false), child: z.boolean(), inherited: z.number(),
+    ralph: z.boolean(), codex: z.boolean(), child: z.boolean(), inherited: z.number(),
+    legacyTeams: z.boolean().optional(), hasNativeTeamMode: z.boolean(),
     pending: z.array(z.object({ id: z.string(), feature: z.enum(features), enabled: z.boolean() })),
-  }) as unknown as HostProjection['stateSchema'],
+  }),
   init: (header: SessionHeader, inherited: SessionLogOffset): SwitchState => ({
-    ralph: false, teams: false, codex: false, child: header.origin === 'subagent', inherited, pending: [],
+    ralph: false, codex: false, child: header.origin === 'subagent', inherited, hasNativeTeamMode: false, pending: [],
   }),
   apply(state: SwitchState, event: SessionEvent): SwitchState {
     if (event.seq < state.inherited) return state
+    if (event.type === 'team/mode') return { ...state, hasNativeTeamMode: true, legacyTeams: undefined }
     if (event.type === 'command/run' && event.data.name === 'agentswitch') {
       const selection = parseSelection(event.data.args ?? '')
-      if (!selection) return state
+      if (!selection || (selection.feature === 'teams' && state.hasNativeTeamMode)) return state
       return { ...state, pending: [...state.pending, { id: event.data.commandId, ...selection }] }
     }
     if (event.type !== 'command/done') return state
     const attempt = state.pending.find(item => item.id === event.data.commandId)
     if (!attempt) return state
     const next = { ...state, pending: state.pending.filter(item => item !== attempt) }
-    if (event.data.kind === 'success') next[attempt.feature] = attempt.enabled
+    if (event.data.kind === 'success') {
+      if (attempt.feature !== 'teams') next[attempt.feature] = attempt.enabled
+      else if (!next.hasNativeTeamMode) next.legacyTeams = attempt.enabled
+    }
     return next
   },
   wire: {
-    viewSchema: z.object({ ralph: z.boolean(), teams: z.boolean(), codex: z.boolean(), child: z.boolean() }) as unknown as HostWire['viewSchema'],
-    view: ({ ralph, teams, codex, child }: SwitchState): SwitchView => ({ ralph, teams, codex, child }),
+    viewSchema: z.object({ ralph: z.boolean(), codex: z.boolean(), child: z.boolean() }),
+    view: ({ ralph, codex, child }: SwitchState): SwitchView => ({ ralph, codex, child }),
   },
-}
+} satisfies ProjectionDefinition<'agentswitch', SwitchState>

@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import type { SwitchView, Feature } from './state.ts'
 
-export const inject = ['slots', 'sessions']
+export const inject = ['slots', 'remote', 'remote.commands']
 interface Props {
   useProjection(key: 'agentswitch'): SwitchView | undefined
+  useProjection(key: 'agentTeam', select: (mode: { enabled: boolean } | undefined) => boolean | undefined): boolean | undefined
   choose(feature: Feature, enabled: boolean): Promise<void>
 }
 
@@ -15,20 +16,22 @@ const buttons = {
 
 export function Switches({ useProjection, choose }: Props) {
   const state = useProjection('agentswitch')
+  const teams = useProjection('agentTeam', mode => mode?.enabled)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   if (!state || state.child) return null
+  const values = { ...state, teams }
   async function change(feature: Feature) {
     if (busy || !state) return
     setBusy(true)
     setError('')
-    try { await choose(feature, !state[feature]) }
+    try { await choose(feature, !values[feature]) }
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
     finally { setBusy(false) }
   }
   return <div className="dsh-agentswitch" aria-busy={busy}>
-    {(Object.keys(buttons) as Feature[]).map(feature => <button
-      key={feature} type="button" role="switch" aria-checked={state[feature]}
+    {(Object.keys(buttons) as Feature[]).filter(feature => values[feature] !== undefined).map(feature => <button
+      key={feature} type="button" role="switch" aria-checked={values[feature]}
       aria-label={buttons[feature].label}
       title={buttons[feature].title}
       disabled={busy} onClick={() => void change(feature)}>
@@ -45,10 +48,13 @@ interface ClientContext {
     inject(name: string, mount: () => unknown): unknown
     register(options: Record<string, unknown>, component: typeof Switches): unknown
   }
-  sessions: {
-    binding(id: string): { session: { command(line: string): Promise<
-      { ok: true; value: { matched: boolean } } | { ok: false; error: { message: string } }
-    > } } | undefined
+  remote: {
+    commands: {
+      execute(sessionId: string, line: string, attachments: []): Promise<
+        | { ok: true; value: { result: { kind: string; text?: string } } | undefined }
+        | { ok: false; error: { message: string } }
+      >
+    }
   }
 }
 
@@ -96,11 +102,10 @@ export function apply(ctx: ClientContext) {
     name: 'conversation.input.dock', id: 'agentswitch', order: 110, label: 'Enhancement Switches',
     inject: (sessionId: string) => ({
       async choose(feature: Feature, enabled: boolean) {
-        const session = ctx.sessions.binding(sessionId)?.session
-        if (!session) throw new Error('会话暂不可用')
-        const result = await session.command(`/agentswitch ${feature} ${enabled ? 'on' : 'off'}`)
+        const result = await ctx.remote.commands.execute(sessionId, `/agentswitch ${feature} ${enabled ? 'on' : 'off'}`, [])
         if (!result.ok) throw new Error(result.error.message)
-        if (!result.value.matched) throw new Error('Enhancement Switches 命令未加载')
+        if (!result.value) throw new Error('Enhancement Switches 命令未加载')
+        if (result.value.result.kind === 'error') throw new Error(result.value.result.text ?? '切换失败')
       },
     }),
   }, Switches))

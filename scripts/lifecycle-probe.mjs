@@ -5,7 +5,7 @@ import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { SessionId } from '@deepseek-ai/dsh-session'
 
-export const inject = ['agents', 'agentPresets', 'commands', 'tools', 'systemPrompt', 'sessionPersistence']
+export const inject = ['agents', 'agentPresets', 'commands', 'tools', 'systemPrompt', 'sessionPersistence', 'agentTeams', 'sessions']
 export async function apply(ctx) {
   await ctx.plugin(Codex, { providerName: 'codex' })
   ctx.effect(() => {
@@ -21,34 +21,68 @@ export async function apply(ctx) {
       ? await ctx.agents.create({ sessionId: SessionId('agentswitch-lifecycle'), agentOptions: {}, meta: { cwd: process.env.DSH_HOME, agentPreset: preset }, setup })
       : await ctx.agents.resume({ resumeSessionId: SessionId('agentswitch-lifecycle'), setup })
     const agent = handle.agent
-    const snapshot = async () => ({
-      tools: ctx.tools.schemas(agent).toSorted((a, b) => a.name.localeCompare(b.name)),
-      prompt: await ctx.systemPrompt.assemble({ agent, scope: agent }),
-      commands: ctx.commands.list(agent).toSorted((a, b) => a.name.localeCompare(b.name)),
-    })
+    const snapshot = async () => {
+      const toolSet = await ctx.tools.resolve({ agent, modelSelection: {}, signal: AbortSignal.timeout(10000) })
+      try {
+        return {
+          tools: ctx.tools.schemas(agent, toolSet).toSorted((a, b) => a.name.localeCompare(b.name)),
+          prompt: await ctx.systemPrompt.assemble({ agent, scope: agent, toolSet }),
+          commands: ctx.commands.list(agent).toSorted((a, b) => a.name.localeCompare(b.name)),
+        }
+      } finally {
+        toolSet.dispose()
+      }
+    }
     const command = async args => {
       const response = await ctx.commands.execute(agent, `/agentswitch ${args}`, [], new AbortController().signal)
       assert.equal(response?.result.kind, 'success')
     }
     try {
       const result = { ok: true, preset, initial: await snapshot() }
+      const legacyId = SessionId('agentswitch-lifecycle-legacy')
+      if (phase === 'baseline') {
+        await ctx.agentTeams.setEnabled(agent, true)
+        result.nativeTeamsOn = await snapshot()
+        await ctx.agentTeams.setEnabled(agent, false)
+        const legacy = await ctx.agents.create({ sessionId: legacyId, agentOptions: {}, meta: { cwd: process.env.DSH_HOME, agentPreset: preset }, setup })
+        try {
+          legacy.agent.session.append('command/run', { commandId: 'legacy-teams', name: 'agentswitch', args: 'teams on' })
+          legacy.agent.session.append('command/done', { commandId: 'legacy-teams', kind: 'success' })
+          await ctx.sessions.flush(legacy.agent.session)
+        } finally {
+          await legacy.dispose()
+        }
+      }
       if (phase === 'enabled') {
+        const legacy = await ctx.agents.resume({ resumeSessionId: legacyId, setup })
+        try {
+          assert.equal(ctx.agentTeams.isEnabled(legacy.agent), true, 'The saved rc.1 command migrates on resume')
+          await ctx.agentTeams.setEnabled(legacy.agent, false)
+        } finally {
+          await legacy.dispose()
+        }
+        const reopened = await ctx.agents.resume({ resumeSessionId: legacyId, setup })
+        try {
+          assert.equal(ctx.agentTeams.isEnabled(reopened.agent), false, 'Native off wins over the historical rc.1 command')
+        } finally {
+          await reopened.dispose()
+        }
         await command('ralph on')
         await command('teams on')
         await command('codex on')
         result.on = await snapshot()
         assert.ok(result.on.tools.some(tool => tool.name === 'ralph'))
-        assert.ok(result.on.tools.some(tool => tool.name === 'spawn_teammate'))
+        assert.ok(result.on.tools.some(tool => tool.name === 'team_task_list'))
         assert.ok(result.on.tools.some(tool => tool.name === 'subagent_codex'))
         for (const name of ['subagent', 'subagent_fork']) {
           assert.ok(result.initial.tools.some(tool => tool.name === name))
-          assert.ok(!result.on.tools.some(tool => tool.name === name))
+          assert.ok(result.on.tools.some(tool => tool.name === name))
         }
         await command('ralph off')
         await command('teams off')
         await command('codex off')
         result.off = await snapshot()
-        // Leave durable selections ON so disabling/uninstalling must suppress them.
+        // Leave all three on. Native Team mode outlives the plugin.
         await command('ralph on')
         await command('teams on')
         await command('codex on')

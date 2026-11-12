@@ -5,7 +5,7 @@ import { resolve, join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { createServer } from 'node:net'
 
-assert.equal(execFileSync('dsh', ['--version'], { encoding: 'utf8' }).trim(), '0.2.2-rc.1')
+assert.equal(execFileSync('dsh', ['--version'], { encoding: 'utf8' }).trim(), '0.2.2-rc.2')
 await mkdir('work', { recursive: true })
 const home = await mkdtemp(resolve('work/lifecycle-'))
 const env = { ...process.env, DSH_HOME: home }
@@ -55,12 +55,17 @@ const disabled = await capture('disabled')
 cli(['plugin', '--profile', 'web', 'remove', 'dsh-enhancement-switches'])
 const uninstalled = await capture('uninstalled')
 // Prompts are captured before any model turn: no generated content or variable time normalization.
-for (const [label, value] of [['enabled default off', enabled.initial], ['all switches off', enabled.off], ['disabled', disabled.initial], ['uninstalled', uninstalled.initial]]) {
-  assert.deepEqual(value.tools, baseline.initial.tools, `${label}: tool schemas differ from native host`)
-  assert.deepEqual(value.prompt, baseline.initial.prompt, `${label}: prompt differs from native host`)
+for (const [label, value, native] of [
+  ['enabled default off', enabled.initial, baseline.initial],
+  ['all switches off', enabled.off, baseline.initial],
+  ['disabled', disabled.initial, baseline.nativeTeamsOn],
+  ['uninstalled', uninstalled.initial, baseline.nativeTeamsOn],
+]) {
+  assert.deepEqual(value.tools, native.tools, `${label}: tool schemas differ from native host`)
+  assert.deepEqual(value.prompt, native.prompt, `${label}: prompt differs from native host`)
 }
 assert.deepEqual(disabled.initial.commands, baseline.initial.commands)
 assert.deepEqual(uninstalled.initial.commands, baseline.initial.commands)
-const result = { ok: true, preset: baseline.preset, nativeTools: baseline.initial.tools.map(tool => tool.name), checks: ['Default-off and switched-off tool schemas and full system prompt equal native host', 'Disabled bundle removes commands, tools and prompt changes even with saved ON selections', 'Uninstalled package removes commands, tools and prompt changes even with saved ON selections'], modelCalls: 0 }
+const result = { ok: true, preset: baseline.preset, nativeTools: baseline.initial.tools.map(tool => tool.name), checks: ['Default-off and switched-off tool schemas and full system prompt equal native host', 'Legacy rc.1 Team mode migrates and yields to later native changes', 'Disabling and uninstalling remove plugin commands and effects while retaining native Team mode'], modelCalls: 0 }
 await writeFile(join(home, 'result.json'), JSON.stringify(result, null, 2))
 console.log(JSON.stringify(result, null, 2))

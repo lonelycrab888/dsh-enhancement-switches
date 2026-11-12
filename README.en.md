@@ -6,7 +6,7 @@
 
 `dsh-enhancement-switches` adds three independent switches above the DeepSeek Harness message box. Use **Ralph Loop** for repeated testing, **Agent Teams** for parallel work, and **Codex Subagent** to delegate a task to Codex. Each conversation saves its own settings.
 
-**Tested with DeepSeek Harness `0.2.2-rc.1`** · Desktop and Web
+**DeepSeek Harness `0.2.2-rc.2`** (Enhancement Switches v0.1.4)
 
 ## How to use it
 
@@ -24,7 +24,7 @@
 | **Agent Teams** | Several parts of a task can run in parallel with teammates and a shared task board | “Use Agent Teams to review the frontend and backend in parallel, then summarize the findings.” |
 | **Codex Subagent** | Codex can handle a self-contained task in the current workspace | “Ask the Codex subagent to review this change for potential regressions.” |
 
-Changing a switch takes no model call. With all three switches off, the plugin leaves the corresponding tools and prompts out of that conversation. Token use depends on the work you delegate. Work already in progress can continue after you turn a switch off. Use Harness's stop control to cancel it.
+Changing a switch takes no model call. Standard subagent delegation remains available when all three switches are off. Token use depends on the work you delegate. Work already in progress can continue after you turn a switch off. Use Harness's stop control to cancel it.
 
 ## Installation
 
@@ -36,7 +36,7 @@ Configure the Harness Plugins panel as follows:
 | Plugin or switch | Setting | Purpose |
 | --- | --- | --- |
 | Official global Ralph Loop plugin | Disabled | Enhancement Switches provides per-conversation control |
-| Official global Agent Teams plugin | Disabled | Enhancement Switches provides per-conversation control |
+| Built-in Agent Teams | Keep enabled | The input dock and model menu use the same saved conversation setting |
 | Official Codex Subagent plugin | Required when using Codex | Provides the Codex backend and manages model, permission, and environment settings |
 | Enhancement Switches plugin | Enabled | Adds the three conversation switches |
 | Codex switch in a conversation | On or off as needed | Controls whether that conversation can call the Codex subagent |
@@ -45,28 +45,53 @@ Configure the Harness Plugins panel as follows:
 
 If you installed a version under an older package name, uninstall it from the corresponding profile first.
 
-### Desktop
+### Let Desktop select a compatible version
 
-Open **Plugins → Add Plugin**, select the **official npm registry** as the installation source, and paste the Git URL into **Package name or address**.
+In **Plugins → Experimental plugins**, enable **Custom plugin indexes**. Open **Discover → Add index source** and enter:
 
 ```text
-git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#main
+https://raw.githubusercontent.com/lonelycrab888/dsh-enhancement-switches/main/plugin-index.json
 ```
 
-If the install log shows GitHub returning a 404 for an npm dependency, check the installation source and switch it back to the **official npm registry**. The Git URL locates the plugin, while the npm registry serves its dependencies.
+Select **Enhancement Switches** and install it. Harness recommends the highest version in the index that matches your runtime and installs the Git commit the release tag points to.
 
-Once installation finishes, confirm that the official Ralph Loop and Agent Teams plugins are disabled, then enable **Enhancement Switches** in the Plugins panel.
+### Install a specific version
 
-### Web CLI
+In **Plugins → Add Plugin**, select the **official npm registry** and paste the appropriate address into **Package name or address**:
 
-Install directly from GitHub, then start the Web interface.
+| DeepSeek Harness | Enhancement Switches | Git install address |
+| --- | --- | --- |
+| `0.2.2-rc.2` | [v0.1.4](https://github.com/lonelycrab888/dsh-enhancement-switches/releases/tag/v0.1.4) | `git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.1.4` |
+| `0.2.2-rc.1` | [v0.1.3](https://github.com/lonelycrab888/dsh-enhancement-switches/releases/tag/v0.1.3) | `git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.1.3` |
+
+`#main` installs the current commit on the main branch. Use the Discover index to select a compatible version automatically. On rc.2, you can also download the v0.1.4 release archive and enter its absolute path in **Package name or address**.
+
+Restart Desktop if prompted and confirm Enhancement Switches is enabled. Disable the official global Ralph Loop plugin if it is active so the conversation switch controls Ralph.
+
+### Web and local development
+
+Web can install a pinned Git tag directly. For rc.2, run:
 
 ```sh
-dsh plugin --profile web add 'git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#main'
+dsh plugin --profile web add 'git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.1.4'
 dsh web
 ```
 
-The repository includes the compiled files in `lib/` for direct installation.
+Run these commands from the plugin repository:
+
+```sh
+npm ci
+npm run build
+npm pack
+```
+
+For Web, install the package from the same directory:
+
+```sh
+dsh plugin --profile web add "$PWD/dsh-enhancement-switches-0.1.4.tgz"
+```
+
+For future releases, run `node scripts/update-plugin-index.mjs` after tagging the release and commit the updated index.
 
 ## Commands and configuration
 
@@ -89,7 +114,9 @@ Ralph has a default limit of **8 rounds**, and each round may make several model
     maxRounds: 8
 ```
 
-Team members follow the Teams setting of the root conversation. With Teams on, the root and its teammates delegate directly through `spawn_teammate`. The ordinary `subagent` and `subagent_fork` tools are hidden. Turning Teams off restores the preset's delegation and control tools, so you can manage previously created ordinary subagents using their original Agent IDs. The task board and member records are available again when you turn Teams back on.
+The input dock and the model and reasoning menu use the same Team setting for the root conversation. With Teams on, the whole subagent tree gets four shared task tools. Use `subagent` or `subagent_fork` to create a member, give it an optional `name`, and message it with `send_message({ agent, message })`. Turning Teams off keeps standard delegation and messaging available. Turning it back on restores the task board.
+
+When a conversation from v0.1.3 is opened, the plugin migrates its saved Teams selection. An existing native selection takes precedence. The host can still read historical experimental Team member records. Remove any profile overrides for the old `agentswitch-team-service` and `agentswitch-team-ui` rows, since the host now supplies the Team service.
 
 With Codex Subagent on, the current root conversation gets the `subagent_codex` tool. Team members and ordinary subagents do not inherit it. Harness starts Codex when it calls the tool, using your local Codex sign-in and configuration. Each call delegates a single task with its instructions and working directory. Sign in to Codex locally before your first call.
 

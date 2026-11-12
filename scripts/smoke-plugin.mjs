@@ -1,20 +1,19 @@
 // Loaded only by scripts/smoke.mjs in an isolated DSH_HOME. All model responses
 // are deterministic and local. The host loads the official Team, Ralph and Codex integrations.
 import assert from 'node:assert/strict'
-import * as Codex from '@deepseek-ai/dsh-subagent-codex'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { LlmAdapter } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
 
-export const inject = ['llm', 'agents', 'agentPresets', 'commands', 'tools', 'agentTeams', 'subagents', 'sessionPersistence']
+export const inject = ['llm', 'agents', 'agentPresets', 'commands', 'tools', 'agentTeams', 'subagents', 'sessionPersistence', 'sessionProjections']
 const teammatePrompt = 'Reply to this smoke test as the named teammate.'
 class Mock extends LlmAdapter {
   requests = []
   teammateStarted = Promise.withResolvers()
   teammateMayFinish = Promise.withResolvers()
-  async listModels() { return [{ id: 'mock', name: 'Enhancement Switches local test' }] }
+  async listModels(provider) { return [{ provider, id: 'mock', name: 'Enhancement Switches local test' }] }
   async resolveModel(provider, model) { return { provider, id: model, name: model } }
   async *stream(options) {
     const names = options.tools.map(tool => tool.name)
@@ -39,7 +38,6 @@ class Mock extends LlmAdapter {
 }
 
 export async function apply(ctx) {
-  await ctx.plugin(Codex, { providerName: 'codex' })
   const adapter = new Mock()
   ctx.llm.registerAdapter(['agentswitch-test'], adapter)
   ctx.effect(() => {
@@ -67,89 +65,93 @@ export async function apply(ctx) {
       const result = await ctx.commands.execute(agent, `/agentswitch ${args}`, [], new AbortController().signal)
       assert.equal(result?.result.kind, 'success', JSON.stringify(result))
     }
-    const names = agent => ctx.tools.schemas(agent).map(tool => tool.name)
-    const standalone = agent => names(agent).filter(name => name === 'subagent' || name === 'subagent_fork').sort()
-    const standaloneNames = ['subagent', 'subagent_fork']
-    const call = (agent, name, args) => {
-      const tool = ctx.tools.definitions(agent).find(tool => tool.name === name)
-      assert.ok(tool, `Missing ${name}`)
-      return tool.execute(args, { agent, signal: AbortSignal.timeout(30000) })
+    const resolveTools = agent => ctx.tools.resolve({
+      agent, modelSelection: { provider: 'agentswitch-test', model: 'mock' }, signal: AbortSignal.timeout(30000),
+    })
+    const names = async agent => {
+      const tools = await resolveTools(agent)
+      try { return ctx.tools.schemas(agent, tools).map(tool => tool.name) }
+      finally { tools.dispose() }
     }
+    const call = async (agent, name, args) => {
+      const tools = await resolveTools(agent)
+      const signal = AbortSignal.timeout(30000)
+      try {
+        const tool = ctx.tools.executable(name, agent, tools)
+        assert.ok(tool, `Missing ${name}`)
+        return await tool.execute(args, { agent, signal })
+      } finally { tools.dispose() }
+    }
+    const teamView = agent => ctx.sessionProjections.snapshot(agent.session, ['agentTeam']).values.agentTeam
     try {
       const a = await make('agentswitch-smoke-a')
       const b = await make('agentswitch-smoke-b')
-      assert.ok(!names(a).includes('ralph') && !names(a).includes('spawn_teammate'))
-      assert.ok(!names(a).includes('subagent_codex'))
+      const initial = await names(a)
+      for (const name of ['ralph', 'team_task_create', 'subagent_codex', 'spawn_teammate', 'interrupt_agent']) {
+        assert.ok(!initial.includes(name), `${name} should be absent by default`)
+      }
+      for (const name of ['subagent', 'subagent_fork', 'send_message', 'list_agents', 'wait_agent']) {
+        assert.ok(initial.includes(name), `Missing native ${name}`)
+      }
       const officialProvider = ctx.subagents.getProvider('codex')
-      assert.ok(officialProvider)
-      assert.equal(ctx.subagents.getProvider('enhancement-switches-codex'), undefined)
-      assert.deepEqual(standalone(a), standaloneNames)
-      const ordinary = await call(a, 'subagent', { description: 'Ordinary child before switching', prompt: 'Reply with a short local test confirmation' })
-      assert.ok(ordinary.subagentId)
-      checks.push('All switches default off')
+      const officialTool = ctx.tools.get('subagent_codex')
+      assert.ok(officialProvider && officialTool)
+      checks.push('Default off preserves standard named delegation and controls')
       await command(a, 'ralph on')
       await command(a, 'teams on')
       await command(a, 'codex on')
-      assert.equal(ctx.subagents.getProvider('codex')?.inheritsParentContext, false)
-      assert.ok(names(a).includes('subagent_codex'))
-      assert.ok(!names(b).includes('subagent_codex'))
-      assert.equal(ctx.tools.get('subagent_codex'), undefined)
+      assert.equal(teamView(a).enabled, true)
+      assert.equal(teamView(b).enabled, false)
+      assert.equal(ctx.tools.get('subagent_codex', a), officialTool)
+      assert.equal(ctx.tools.get('subagent_codex', b), undefined)
       assert.equal(ctx.tools.checkGuards({ name: 'subagent_codex', agent: a }), undefined)
-      checks.push('Shared official Codex provider exposes its tool only in the selected root')
-      assert.ok(names(a).includes('ralph') && names(a).includes('spawn_teammate'))
-      assert.ok(!names(b).includes('ralph') && !names(b).includes('spawn_teammate'))
-      assert.deepEqual(standalone(a), [])
-      assert.deepEqual(standalone(b), standaloneNames)
-      checks.push('Teams hides ordinary delegation in one session and preserves it in another')
+      const enabled = await names(a)
+      for (const name of ['ralph', 'team_task_create', 'team_task_list', 'team_task_get', 'team_task_update', 'subagent_codex', 'subagent', 'subagent_fork']) {
+        assert.ok(enabled.includes(name), `Missing ${name}`)
+        if (name !== 'subagent' && name !== 'subagent_fork') assert.ok(!(await names(b)).includes(name))
+      }
+      checks.push('Each switch changes only the selected root and Teams keeps native delegation')
       const task = await call(a, 'team_task_create', { subject: 'Smoke test', description: 'Verify shared task persistence' })
       assert.equal(task.subject, 'Smoke test')
-      checks.push('Official Team task board creates tasks')
-      const spawned = await call(a, 'spawn_teammate', { name: 'smoke-worker', description: 'Local test worker', prompt: teammatePrompt, context: 'fresh' })
-      assert.equal(spawned.member.target, 'smoke-worker')
+      const spawned = await call(a, 'subagent', { name: 'smoke-worker', description: 'Local test worker', prompt: teammatePrompt })
+      assert.deepEqual(spawned, { kind: 'activation', name: 'smoke-worker' })
       const modelTools = await Promise.race([
         adapter.teammateStarted.promise,
         delay(10000, undefined, { ref: false }).then(() => { throw new Error('Teammate did not start a model request') }),
       ])
-      assert.ok(!standaloneNames.some(name => modelTools.includes(name)))
-      assert.ok(!modelTools.includes('subagent_codex'))
-      const member = ctx.agentTeams.listMembers(a).find(row => row.name === spawned.member.target)
-      const teammate = member && ctx.agents.get(member.id)
-      assert.ok(teammate)
-      assert.deepEqual(standalone(teammate), [])
-      assert.ok(names(teammate).includes('send_message'))
-      assert.ok(!names(teammate).includes('subagent_codex'))
-      checks.push('Official Team service spawns a member with the same delegation filter')
+      assert.ok(modelTools.includes('team_task_list') && modelTools.includes('send_message'))
+      assert.ok(!modelTools.includes('subagent_codex') && !modelTools.includes('ralph'))
+      const receipt = await call(a, 'send_message', { agent: 'smoke-worker', message: 'Confirm this named child remains reachable.' })
+      assert.ok(receipt.messageId)
+      checks.push('Native named child inherits task tools and receives a message')
       const ralph = await call(a, 'ralph', { objective: 'Complete the deterministic local smoke test', maxRounds: 1 })
       assert.equal(ralph.result.status, 'complete')
       assert.equal(ralph.agentsStarted, 1)
       checks.push('Official Ralph workflow completes one fresh-agent round')
       await command(a, 'codex off')
       assert.equal(ctx.subagents.getProvider('codex'), officialProvider)
-      assert.ok(!names(a).includes('subagent_codex'))
-      assert.match(ctx.tools.checkGuards({ name: 'subagent_codex', agent: a }), /disabled/)
-      assert.ok(names(a).includes('spawn_teammate'))
-      checks.push('Turning Codex off removes its tool without changing Teams')
-      await command(a, 'teams off')
-      assert.ok(!names(a).includes('spawn_teammate'))
-      assert.deepEqual(standalone(a), standaloneNames)
-      assert.deepEqual(standalone(teammate), standaloneNames)
+      assert.ok(!(await names(a)).includes('subagent_codex'))
+      assert.match(ctx.tools.checkGuards({ name: 'subagent_codex', agent: a })?.reason, /disabled/)
+      assert.equal(teamView(a).enabled, true)
+      checks.push('Turning Codex off hides its tool and retains the official provider')
+      await ctx.agentTeams.setEnabled(a, false)
+      assert.equal(teamView(a).enabled, false)
+      const disabled = await names(a)
+      assert.ok(!disabled.includes('team_task_list') && disabled.includes('subagent'))
       adapter.teammateMayFinish.resolve()
-      const receipt = await call(a, 'send_message', { agent_id: ordinary.subagentId, message: 'Confirm this existing ordinary child remains reachable.' })
-      assert.ok(receipt.messageId)
-      checks.push('Turning Teams off restores ordinary delegation and messaging to an existing child')
       await command(a, 'teams on')
       const tasks = await call(a, 'team_task_list', {})
       assert.ok(tasks.tasks.some(row => row.subject === 'Smoke test'))
-      checks.push('Switching off/on retains Team tasks')
+      checks.push('Native menu API and slash command share state; re-enabling restores the task board')
       const id = a.id
       await command(a, 'codex on')
       await handles[0].dispose()
       handles.shift()
       const resumed = await ctx.agents.resume({ resumeSessionId: id, setup })
       handles.push(resumed)
-      assert.ok(names(resumed.agent).includes('ralph') && names(resumed.agent).includes('spawn_teammate'))
-      assert.ok(names(resumed.agent).includes('subagent_codex'))
-      assert.deepEqual(standalone(resumed.agent), [])
+      const restored = await names(resumed.agent)
+      assert.ok(restored.includes('ralph') && restored.includes('team_task_list') && restored.includes('subagent_codex'))
+      assert.equal(teamView(resumed.agent).enabled, true)
       checks.push('Disk-backed session resume restores all three switches')
       await writeFile(join(process.env.DSH_HOME, 'smoke-result.json'), JSON.stringify({ ok: true, checks, modelCalls: adapter.requests.length, toolSets: adapter.requests }, null, 2))
     } finally {

@@ -3,11 +3,10 @@ import Schema from '@deepseek-ai/schemastery'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-commands'
 import type {} from '@deepseek-ai/dsh-session-projection'
-import type {} from '@deepseek-ai/dsh-experimental-agent-team'
+import type {} from '@deepseek-ai/dsh-agent-team'
 import { createScope, type Scope } from '@deepseek-ai/dsh-scope'
 import * as Ralph from '@deepseek-ai/dsh-tool-ralph'
 import { projection, parseSelection, type Feature, type Selection } from './state.ts'
-import { installTeamTools } from './vendor/team-tools.ts'
 
 export const name = 'agentswitch'
 export const inject = ['agents', 'commands', 'sessionProjections', 'agentTeams', 'workflowEngine', 'subagents', 'tools', 'systemPrompt']
@@ -20,15 +19,14 @@ export const Config = Schema.object({
   codexModel: Schema.string().min(1),
 })
 
-const standaloneDelegation = ['subagent', 'subagent_fork']
 const codexProvider = 'codex'
 const codexToolName = 'subagent_codex'
 
 /** Scope ownership keeps global bundles and ordinary presets independent. */
 export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Promise<void> {
   const saved = await ctx.sessionProjections.register(projection)
-  const mounted = new Map<Agent, { ralph?: Scope; teams?: () => void; codex?: Scope; restoreCodex?: () => void }>()
-  const pending = new Map<string, { agent: Agent; feature: Feature; enabled: boolean }>()
+  const mounted = new Map<Agent, { ralph?: Scope; codex?: Scope; restoreCodex?: () => void }>()
+  const pending = new Map<string, { agent: Agent; feature: Exclude<Feature, 'teams'>; enabled: boolean }>()
   let stopped = false
   let queue: Promise<void> = Promise.resolve()
 
@@ -40,9 +38,12 @@ export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Pr
     return state
   }
 
-  function teamEnabled(agent: Agent): boolean {
-    const member = ctx.agentTeams.tryMembership(agent)
-    return !stopped && member !== undefined && selected(member.root).teams
+  async function migrateTeams(agent: Agent): Promise<void> {
+    if (agent.session.header.origin === 'subagent') return
+    const { hasNativeTeamMode, legacyTeams } = saved.stateOf(agent.session)
+    if (!hasNativeTeamMode && legacyTeams !== undefined && ctx.agentTeams.isEnabled(agent) !== legacyTeams) {
+      await ctx.agentTeams.setEnabled(agent, legacyTeams)
+    }
   }
 
   function ralphEnabled(agent: Agent): boolean {
@@ -50,22 +51,23 @@ export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Pr
   }
 
   function codexEnabled(agent: Agent): boolean {
-    return !stopped && agent.session.header.origin !== 'subagent' && selected(agent).codex
+    return !stopped && agent.session.header.origin !== 'subagent' && selected(agent).codex && codexUnavailable() === undefined
+  }
+
+  function codexUnavailable(): string | undefined {
+    if (config.codexModel !== undefined) {
+      return 'Move agentswitch.codexModel to subagent-codex.config.model, then remove codexModel.'
+    }
+    if (!ctx.subagents.getProvider(codexProvider)) {
+      return 'Enable the official Codex Subagent plugin first. Enhancement Switches uses its codex provider.'
+    }
   }
 
   async function mountCodex(agent: Agent): Promise<Scope> {
-    if (config.codexModel !== undefined) {
-      throw new Error('Move agentswitch.codexModel to subagent-codex.config.model, then remove codexModel. Codex now uses the official shared provider.')
-    }
-    if (!ctx.subagents.getProvider(codexProvider)) {
-      throw new Error('Enable the official Codex Subagent plugin first. Enhancement Switches uses its codex provider.')
-    }
     const tool = await import('@deepseek-ai/dsh-tool-subagent')
     const scope = createScope(ctx, agent)
     try {
-      if (!ctx.tools.get(codexToolName, agent)) {
-        await tool.apply(scope.ctx, { provider: codexProvider, toolName: codexToolName, maxDepth: 'provider-managed' })
-      }
+      await tool.apply(scope.ctx, { provider: codexProvider, toolName: codexToolName, maxDepth: 'provider-managed' })
       return scope
     } catch (error) {
       await scope.dispose()
@@ -73,31 +75,11 @@ export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Pr
     }
   }
 
-  function visibleStandaloneDelegation(agent: Agent): string[] {
-    return standaloneDelegation.filter(name => ctx.tools.get(name, agent) !== undefined)
-  }
-
-  function mountTeams(agent: Agent): () => void {
-    const deny = visibleStandaloneDelegation(agent)
-    const restore = deny.length > 0 ? agent.ctx.tools.restrict({ deny }) : undefined
-    try {
-      const unmount = installTeamTools(agent, ctx,
-        { interrupt: true, freshProvider: 'spawn', forkProvider: 'fork' }, () => teamEnabled(agent))
-      return () => {
-        try {
-          unmount()
-        } finally {
-          restore?.()
-        }
-      }
-    } catch (error) {
-      restore?.()
-      throw error
-    }
-  }
-
   async function reconcile(): Promise<void> {
     for (const agent of ctx.agents.list()) {
+      if (stopped) return
+      await migrateTeams(agent).catch(error => ctx.logger.error('Unable to migrate the saved Agent Teams selection', error))
+      if (stopped || ctx.agents.get(agent.id) !== agent) continue
       if (!mounted.has(agent)) mounted.set(agent, {})
       const entry = mounted.get(agent)!
       if (ralphEnabled(agent) && !entry.ralph) {
@@ -116,18 +98,11 @@ export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Pr
         delete entry.ralph
         await scope.dispose()
       }
-      const teams = teamEnabled(agent)
-      // A preset or provider change can expose a delegation tool that was absent at mount time.
-      if (entry.teams && (!teams || visibleStandaloneDelegation(agent).length > 0)) {
-        entry.teams()
-        delete entry.teams
-      }
-      if (teams && !entry.teams) entry.teams = mountTeams(agent)
       if (codexEnabled(agent) && entry.restoreCodex) {
         entry.restoreCodex()
         delete entry.restoreCodex
       }
-      if (codexEnabled(agent) && !entry.codex) {
+      if (codexEnabled(agent) && !entry.codex && !ctx.tools.get(codexToolName, agent)) {
         const scope = await mountCodex(agent)
         if (stopped || mounted.get(agent) !== entry) await scope.dispose()
         else entry.codex = scope
@@ -161,13 +136,21 @@ export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Pr
     name: 'agentswitch',
     description: 'Enable Ralph Loop, Agent Teams, or Codex Subagent for this conversation',
     input: { hint: '<ralph|teams|codex> <on|off>' },
-    async handler({ agent, commandId, rawInput }) {
+    async handler({ agent, commandId, rawInput, signal }) {
       const selection = parseSelection(rawInput)
       if (!selection) return { kind: 'error', text: 'Usage: /agentswitch <ralph|teams|codex> <on|off>' }
       if (agent.session.header.origin === 'subagent') {
         return { kind: 'error', text: 'Change these switches in the root conversation.' }
       }
-      pending.set(commandId, { agent, ...selection })
+      if (selection.feature === 'teams') {
+        await ctx.agentTeams.setEnabled(agent, selection.enabled, signal)
+        return { kind: 'success', text: `teams ${selection.enabled ? 'on' : 'off'}` }
+      }
+      if (selection.feature === 'codex' && selection.enabled) {
+        const error = codexUnavailable()
+        if (error !== undefined) return { kind: 'error', text: error }
+      }
+      pending.set(commandId, { agent, feature: selection.feature, enabled: selection.enabled })
       try {
         await schedule()
         return { kind: 'success', text: `${selection.feature} ${selection.enabled ? 'on' : 'off'}` }
@@ -190,7 +173,6 @@ export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Pr
   ctx.on('agent/disposed', async ({ agent }) => {
     const entry = mounted.get(agent)
     mounted.delete(agent)
-    entry?.teams?.()
     await entry?.ralph?.dispose()
     await entry?.codex?.dispose()
     entry?.restoreCodex?.()
@@ -199,7 +181,6 @@ export async function apply(ctx: Context, config: Config = { maxRounds: 8 }): Pr
     stopped = true
     await queue
     for (const entry of mounted.values()) {
-      entry.teams?.()
       await entry.ralph?.dispose()
       await entry.codex?.dispose()
       entry.restoreCodex?.()

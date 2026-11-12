@@ -1,6 +1,6 @@
 # Third-party notices
 
-`src/vendor/team-tools.ts` is adapted from DeepSeek Harness `packages/experimental/tool-agent-team/src/index.ts`, tag `dsh-v0.2.2-rc.1`, commit `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`. Changes export the scoped installer, remove the global installer, and check the session switch before executing captured tools.
+Plugin versions through v0.1.3 included `src/vendor/team-tools.ts`, adapted from DeepSeek Harness `packages/experimental/tool-agent-team/src/index.ts`, tag `dsh-v0.2.2-rc.1`, commit `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`. The adaptation exported the scoped installer, removed the global installer, and checked the session switch before executing captured tools.
 
 https://github.com/deepseek-ai/deepseek-harness
 

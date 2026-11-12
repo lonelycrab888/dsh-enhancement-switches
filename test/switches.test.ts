@@ -25,19 +25,23 @@ async function setup(config: Plugin.Config = { maxRounds: 8 }) {
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(Commands)
   await ctx.plugin(Projections)
-  // Only the Team domain is stubbed. Commands, session logs, scoped tool
-  // registration, guards, projections and the Native executor are real DSH.
+  // Exercise the command and projection against the host service boundary.
+  // The real native Team tools and persistence are covered by the Web smoke test.
   await ctx.plugin((inner: Context) => {
-    inner.provide('subagents', { getProvider: (name: string) => name === 'codex' ? { name } : undefined })
+    inner.provide('subagents', {
+      getProvider: (name: string) => name === 'codex' ? { name } : undefined,
+      resolveMaxDepth: () => undefined,
+    })
     inner.provide('workflowEngine', { start() { throw new Error('workflow not expected in this test') } })
     inner.provide('agentTeams', {
-      tryMembership(agent: Agent) {
-        const root = agent.session.header.parentSession
-          ? ctx.agents.get(agent.session.header.parentSession) : agent
-        return root ? { root, role: root === agent ? 'lead' : 'teammate', name: root === agent ? 'lead' : 'worker' } : undefined
+      isEnabled(agent: Agent) {
+        const parentId = agent.session.header.parentSession
+        const root = parentId ? ctx.agents.get(parentId) : agent
+        return root?.session.snapshotEvents().findLast(event => event.type === 'team/mode' && root.session.isOwnSeq(event.seq))?.data.enabled ?? false
       },
-      membership(agent: Agent) { return this.tryMembership(agent) },
-      listTasks() { return [] },
+      async setEnabled(agent: Agent, enabled: boolean) {
+        if (this.isEnabled(agent) !== enabled) agent.session.append('team/mode', { enabled })
+      },
     })
   })
   const fiber = await ctx.plugin(Plugin, config)
@@ -98,7 +102,7 @@ describe('session switches using the DSH 0.2.2 runtime', () => {
     const { ctx } = await setup()
     ctx.subagents.getProvider = () => undefined
     const a = await agent(ctx, 'missing-codex')
-    await expect(command(ctx, a, 'codex on')).rejects.toThrow('Enable the official Codex Subagent')
+    expect((await command(ctx, a, 'codex on'))?.result).toMatchObject({ kind: 'error', text: expect.stringContaining('Enable the official Codex Subagent') })
     expect(names(ctx, a)).not.toContain('subagent_codex')
     await boundary(ctx, a)
     expect(names(ctx, a)).not.toContain('subagent_codex')
@@ -107,7 +111,7 @@ describe('session switches using the DSH 0.2.2 runtime', () => {
   it('explains migration of the former private-provider model setting', async () => {
     const { ctx } = await setup({ maxRounds: 8, codexModel: 'old-model' })
     const a = await agent(ctx, 'old-codex-config')
-    await expect(command(ctx, a, 'codex on')).rejects.toThrow('subagent-codex.config.model')
+    expect((await command(ctx, a, 'codex on'))?.result).toMatchObject({ kind: 'error', text: expect.stringContaining('subagent-codex.config.model') })
     expect(names(ctx, a)).not.toContain('subagent_codex')
   })
 
@@ -116,35 +120,17 @@ describe('session switches using the DSH 0.2.2 runtime', () => {
     const a = await agent(ctx, 'a')
     const b = await agent(ctx, 'b')
     expect(names(ctx, a)).not.toContain('ralph')
-    expect(names(ctx, a)).not.toContain('spawn_teammate')
+    expect(ctx.agentTeams.isEnabled(a)).toBe(false)
     await command(ctx, a, 'ralph on')
     expect(names(ctx, a)).toContain('ralph')
     expect(names(ctx, b)).not.toContain('ralph')
     expect(ctx.tools.schemas().map(tool => tool.name)).not.toContain('ralph')
     await command(ctx, a, 'teams on')
-    expect(names(ctx, a)).toContain('spawn_teammate')
-    expect(names(ctx, b)).not.toContain('spawn_teammate')
+    expect(ctx.agentTeams.isEnabled(a)).toBe(true)
+    expect(ctx.agentTeams.isEnabled(b)).toBe(false)
     await command(ctx, a, 'ralph off')
     expect(names(ctx, a)).not.toContain('ralph')
-    expect(names(ctx, a)).toContain('spawn_teammate')
-  })
-
-  it('removes feature guidance when switched off', async () => {
-    const { ctx } = await setup()
-    const a = await agent(ctx, 'guidance')
-    await command(ctx, a, 'teams on')
-    expect(JSON.stringify(await ctx.systemPrompt.assemble({ agent: a, scope: a }))).toContain('Team Lead')
-    await command(ctx, a, 'teams off')
-    expect(JSON.stringify(await ctx.systemPrompt.assemble({ agent: a, scope: a }))).not.toContain('Team Lead')
-  })
-
-  it('rejects a team tool captured before disabling', async () => {
-    const { ctx } = await setup()
-    const a = await agent(ctx, 'stale')
-    await command(ctx, a, 'teams on')
-    const tool = ctx.tools.definitions(a).find(tool => tool.name === 'team_task_list')!
-    await command(ctx, a, 'teams off')
-    await expect(async () => tool.execute({}, { agent: a } as never)).rejects.toThrow('disabled')
+    expect(ctx.agentTeams.isEnabled(a)).toBe(true)
   })
 
   it('denies stale Ralph calls after switching off', async () => {
@@ -153,7 +139,7 @@ describe('session switches using the DSH 0.2.2 runtime', () => {
     await command(ctx, a, 'ralph on')
     expect(ctx.tools.checkGuards({ name: 'ralph', agent: a } as never)).toBeUndefined()
     await command(ctx, a, 'ralph off')
-    expect(ctx.tools.checkGuards({ name: 'ralph', agent: a } as never)).toContain('disabled')
+    expect(ctx.tools.checkGuards({ name: 'ralph', agent: a } as never)?.reason).toContain('disabled')
   })
 
   it('inherits Teams for members, keeps Ralph off, and rejects child changes', async () => {
@@ -162,12 +148,13 @@ describe('session switches using the DSH 0.2.2 runtime', () => {
     await command(ctx, a, 'teams on')
     await command(ctx, a, 'ralph on')
     const child = await agent(ctx, 'child', [], a)
-    expect(names(ctx, child)).toContain('team_task_list')
+    expect(ctx.agentTeams.isEnabled(child)).toBe(true)
     expect(names(ctx, child)).not.toContain('ralph')
+    expect((await command(ctx, child, 'teams off'))?.result.kind).toBe('error')
     await command(ctx, child, 'ralph on')
     expect(names(ctx, child)).not.toContain('ralph')
     await command(ctx, a, 'teams off')
-    expect(names(ctx, child)).not.toContain('team_task_list')
+    expect(ctx.agentTeams.isEnabled(child)).toBe(false)
   })
 
   it('restores recorded selections and resets independent forks', async () => {
@@ -178,10 +165,10 @@ describe('session switches using the DSH 0.2.2 runtime', () => {
     const events = a.session.snapshotEvents()
     const resumed = await agent(ctx, 'resumed', events)
     expect(names(ctx, resumed)).toContain('ralph')
-    expect(names(ctx, resumed)).toContain('spawn_teammate')
+    expect(ctx.agentTeams.isEnabled(resumed)).toBe(true)
     const fork = await agent(ctx, 'fork', events, undefined, events.length)
     expect(names(ctx, fork)).not.toContain('ralph')
-    expect(names(ctx, fork)).not.toContain('spawn_teammate')
+    expect(ctx.agentTeams.isEnabled(fork)).toBe(false)
   })
 
   it('handles duplicate and simultaneous commands without leaking registrations', async () => {
@@ -189,23 +176,23 @@ describe('session switches using the DSH 0.2.2 runtime', () => {
     const a = await agent(ctx, 'parallel')
     await Promise.all([command(ctx, a, 'teams on'), command(ctx, a, 'ralph on')])
     await command(ctx, a, 'teams on')
-    expect(names(ctx, a).filter(name => name === 'spawn_teammate')).toHaveLength(1)
+    expect(a.session.snapshotEvents().filter(event => event.type === 'team/mode')).toHaveLength(1)
     await Promise.all([command(ctx, a, 'teams off'), command(ctx, a, 'ralph off')])
     await boundary(ctx, a)
     expect(names(ctx, a)).not.toContain('ralph')
-    expect(names(ctx, a)).not.toContain('spawn_teammate')
+    expect(ctx.agentTeams.isEnabled(a)).toBe(false)
   })
 
-  it('unloads registrations and can restore them on reload', async () => {
+  it('unloads plugin tools and restores them on reload while native Teams stays on', async () => {
     const { ctx, fiber } = await setup()
     const a = await agent(ctx, 'reload')
     await command(ctx, a, 'teams on')
     await command(ctx, a, 'ralph on')
     await fiber.dispose()
     expect(names(ctx, a)).not.toContain('ralph')
-    expect(names(ctx, a)).not.toContain('spawn_teammate')
+    expect(ctx.agentTeams.isEnabled(a)).toBe(true)
     await ctx.plugin(Plugin, { maxRounds: 8 })
-    expect(names(ctx, a)).toContain('spawn_teammate')
+    expect(names(ctx, a)).toContain('ralph')
   })
 
   it('ignores incomplete and failed persisted commands', () => {
@@ -217,9 +204,30 @@ describe('session switches using the DSH 0.2.2 runtime', () => {
     expect(projection.apply(started, done).ralph).toBe(false)
   })
 
-  it('defaults Codex to off when reading an existing two-switch checkpoint', () => {
-    const old = { ralph: true, teams: true, child: false, inherited: 0, pending: [] }
-    const restored = projection.stateSchema.parse(old)
-    expect(projection.wire.view(restored)).toEqual({ ralph: true, teams: true, codex: false, child: false })
+  it('migrates rc.1 selections and honors later native changes and fork boundaries', async () => {
+    const { ctx } = await setup()
+    const original = await agent(ctx, 'legacy-source')
+    original.session.append('command/run', { commandId: 'legacy', name: 'agentswitch', args: 'teams on' })
+    original.session.append('command/done', { commandId: 'legacy', kind: 'success' })
+    const history = original.session.snapshotEvents()
+    const resumed = await agent(ctx, 'legacy-team', history)
+    expect(ctx.agentTeams.isEnabled(resumed)).toBe(true)
+    await ctx.agentTeams.setEnabled(resumed, false)
+    await boundary(ctx, resumed)
+    expect(ctx.agentTeams.isEnabled(resumed)).toBe(false)
+    const fork = await agent(ctx, 'legacy-fork', history, undefined, history.length)
+    expect(ctx.agentTeams.isEnabled(fork)).toBe(false)
+  })
+
+  it('preserves Ralph when reopening a saved Codex selection without the provider', async () => {
+    const { ctx } = await setup()
+    const a = await agent(ctx, 'saved-codex')
+    await command(ctx, a, 'codex on')
+    expect(names(ctx, a)).toContain('subagent_codex')
+    ctx.subagents.getProvider = () => undefined
+    const resumed = await agent(ctx, 'saved-codex-resume', a.session.snapshotEvents())
+    await command(ctx, resumed, 'ralph on')
+    expect(names(ctx, resumed)).toContain('ralph')
+    expect(names(ctx, resumed)).not.toContain('subagent_codex')
   })
 })
