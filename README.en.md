@@ -97,6 +97,8 @@ Maintain compatibility on the matching branch. Use [v0.2.2-rc.1](https://github.
 
 To release, update the plugin version, run `npm run check`, and commit the version files and generated `lib/`. Create a `vX.Y.Z` tag on that commit matching `package.json`, then push the branch and tag. GitHub Actions reads `engines.dsh` from each tag and updates the plugin index on `main`. To refresh it manually, run **Sync plugin index** from the Actions page.
 
+If GitHub Actions is unavailable, push your branch and run `node scripts/push-release-tag.mjs vX.Y.Z` to push the tag and updated index together.
+
 ## Commands and configuration
 
 You can also enter these commands in the message box. Harness updates the conversation settings without a model call.

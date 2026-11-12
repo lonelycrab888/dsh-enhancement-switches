@@ -97,6 +97,8 @@ dsh plugin --profile web add "$PWD/dsh-enhancement-switches-0.1.4.tgz"
 
 发版时，更新插件版本并运行 `npm run check`，提交版本文件和生成的 `lib/`。在该提交上创建与 `package.json` 版本一致的 `vX.Y.Z` 标签，再推送分支和标签。GitHub Actions 会读取标签中的 `engines.dsh`，自动更新 `main` 的插件索引。需要重新同步时，可在 Actions 页面手动运行 **Sync plugin index**。
 
+GitHub Actions 不可用时，推送分支后运行 `node scripts/push-release-tag.mjs vX.Y.Z`。这条命令会一次推送标签和更新后的索引。
+
 ## 命令与配置
 
 也可以直接在输入框使用宿主命令。命令会更新会话里的开关状态，无需发给模型：
