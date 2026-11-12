@@ -8,6 +8,8 @@
 
 **Tested with DeepSeek Harness `0.2.2-rc.1`** · Desktop and Web
 
+See [Maintenance and releases](https://github.com/lonelycrab888/dsh-enhancement-switches/blob/main/README.en.md#maintenance-and-releases) for the release process.
+
 ## How to use it
 
 ![Two switches above the DeepSeek Harness message box. Ralph Loop is gray and off. Agent Teams is blue and on.](assets/conversation-switches.png)

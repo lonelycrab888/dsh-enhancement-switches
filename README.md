@@ -8,6 +8,8 @@
 
 **已验证版本：DeepSeek Harness `0.2.2-rc.1`** · 桌面端和 Web 可用
 
+发版流程见 [维护与发布](https://github.com/lonelycrab888/dsh-enhancement-switches/blob/main/README.md#维护与发布)。
+
 ## 这样用
 
 ![DeepSeek Harness 输入框上方有两个开关：Ralph Loop 灰色关闭，Agent Teams 蓝色开启](assets/conversation-switches.png)
