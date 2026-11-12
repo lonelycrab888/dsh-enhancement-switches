@@ -1,0 +1,73 @@
+{
+  "format": 1,
+  "title": {
+    "en": "Enhancement Switches",
+    "zh": "增强开关"
+  },
+  "plugins": [
+    {
+      "name": "dsh-enhancement-switches",
+      "title": {
+        "en": "Enhancement Switches",
+        "zh": "增强开关"
+      },
+      "description": {
+        "en": "Per-conversation switches for Ralph Loop, Agent Teams, and Codex Subagent.",
+        "zh": "在每个对话中单独切换 Ralph Loop、Agent Teams 和 Codex 子智能体。"
+      },
+      "repository": {
+        "url": "https://github.com/lonelycrab888/dsh-enhancement-switches"
+      },
+      "versions": [
+        {
+          "version": "0.1.4",
+          "publishTimestamp": 1794459657,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/lonelycrab888/dsh-enhancement-switches",
+            "commit": "cd8d888abbf63107deeca65f6e3e65e9dd072c95"
+          },
+          "engines": {
+            "dsh": "0.2.2-rc.2"
+          }
+        },
+        {
+          "version": "0.1.3",
+          "publishTimestamp": 1794411998,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/lonelycrab888/dsh-enhancement-switches",
+            "commit": "8651ffe4cd4606cfdbedff63271b8e575c7f5b99"
+          },
+          "engines": {
+            "dsh": "0.2.2-rc.1"
+          }
+        },
+        {
+          "version": "0.1.2",
+          "publishTimestamp": 1794411998,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/lonelycrab888/dsh-enhancement-switches",
+            "commit": "bf4c6c84ae7f77961f76b481c9b4358e0a01cdab"
+          },
+          "engines": {
+            "dsh": "0.2.2-rc.1"
+          }
+        },
+        {
+          "version": "0.1.1",
+          "publishTimestamp": 1794406056,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/lonelycrab888/dsh-enhancement-switches",
+            "commit": "afe64f9ad6dba37a04544e004190e3c47825c323"
+          },
+          "engines": {
+            "dsh": "0.2.2-rc.1"
+          }
+        }
+      ]
+    }
+  ]
+}
