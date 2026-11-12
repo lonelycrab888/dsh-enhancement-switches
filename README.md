@@ -50,7 +50,7 @@
 打开 **插件 → 添加插件**，将 **安装源** 选为 **npm 官方源**，然后把下面的 Git 地址粘贴到 **包名或地址**：
 
 ```text
-git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#main
+git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.2.2-rc.1
 ```
 
 如果安装日志显示 GitHub 在下载某个 npm 依赖时返回 404，请检查 **安装源** 是否选成了 GitHub 仓库地址，并切回 **npm 官方源**。Git 地址用于获取插件，npm 源用于下载依赖。
@@ -62,7 +62,7 @@ git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#main
 直接从 GitHub 安装并启动 Web 端：
 
 ```sh
-dsh plugin --profile web add 'git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#main'
+dsh plugin --profile web add 'git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.2.2-rc.1'
 dsh web
 ```
 

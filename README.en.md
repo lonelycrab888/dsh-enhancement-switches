@@ -50,7 +50,7 @@ If you installed a version under an older package name, uninstall it from the co
 Open **Plugins → Add Plugin**, select the **official npm registry** as the installation source, and paste the Git URL into **Package name or address**.
 
 ```text
-git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#main
+git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.2.2-rc.1
 ```
 
 If the install log shows GitHub returning a 404 for an npm dependency, check the installation source and switch it back to the **official npm registry**. The Git URL locates the plugin, while the npm registry serves its dependencies.
@@ -62,7 +62,7 @@ Once installation finishes, confirm that the official Ralph Loop and Agent Teams
 Install directly from GitHub, then start the Web interface.
 
 ```sh
-dsh plugin --profile web add 'git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#main'
+dsh plugin --profile web add 'git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.2.2-rc.1'
 dsh web
 ```
 
