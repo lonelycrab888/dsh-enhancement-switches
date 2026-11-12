@@ -1,0 +1,49 @@
+name: Sync plugin index
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-plugin-index
+  queue: max
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out the index branch and release tags
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Rebuild and publish the index
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          for attempt in 1 2 3; do
+            git fetch --prune --prune-tags origin '+refs/heads/main:refs/remotes/origin/main'
+            git reset --hard origin/main
+            node scripts/update-plugin-index.mjs
+            if git diff --quiet -- plugin-index.json; then
+              echo 'Plugin index already matches the release tags.'
+              exit 0
+            fi
+
+            git add -- plugin-index.json
+            git commit -m 'Update plugin index from release tags'
+            if git push origin HEAD:refs/heads/main; then
+              exit 0
+            fi
+            echo "Index push failed on attempt $attempt. Fetching the latest main before retrying."
+          done
+          exit 1

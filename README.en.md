@@ -91,7 +91,11 @@ For Web, install the package from the same directory:
 dsh plugin --profile web add "$PWD/dsh-enhancement-switches-0.1.4.tgz"
 ```
 
-For future releases, run `node scripts/update-plugin-index.mjs` after tagging the release and commit the updated index.
+### Maintenance and releases
+
+Maintain compatibility on the matching branch. Use [v0.2.2-rc.1](https://github.com/lonelycrab888/dsh-enhancement-switches/tree/v0.2.2-rc.1) for rc.1 and [v0.2.2-rc.2](https://github.com/lonelycrab888/dsh-enhancement-switches/tree/v0.2.2-rc.2) for rc.2. The `main` branch holds ongoing development and the Desktop index.
+
+To release, update the plugin version, run `npm run check`, and commit the version files and generated `lib/`. Create a `vX.Y.Z` tag on that commit matching `package.json`, then push the branch and tag. GitHub Actions reads `engines.dsh` from each tag and updates the plugin index on `main`. To refresh it manually, run **Sync plugin index** from the Actions page.
 
 ## Commands and configuration
 

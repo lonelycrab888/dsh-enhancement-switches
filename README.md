@@ -91,7 +91,11 @@ Web 端在同一目录运行：
 dsh plugin --profile web add "$PWD/dsh-enhancement-switches-0.1.4.tgz"
 ```
 
-发布新版本时，在创建版本标签后运行 `node scripts/update-plugin-index.mjs`，然后提交更新后的索引。
+### 维护与发布
+
+在对应分支维护宿主兼容性。rc.1 使用 [v0.2.2-rc.1](https://github.com/lonelycrab888/dsh-enhancement-switches/tree/v0.2.2-rc.1)，rc.2 使用 [v0.2.2-rc.2](https://github.com/lonelycrab888/dsh-enhancement-switches/tree/v0.2.2-rc.2)。`main` 承载后续开发和桌面端索引。
+
+发版时，更新插件版本并运行 `npm run check`，提交版本文件和生成的 `lib/`。在该提交上创建与 `package.json` 版本一致的 `vX.Y.Z` 标签，再推送分支和标签。GitHub Actions 会读取标签中的 `engines.dsh`，自动更新 `main` 的插件索引。需要重新同步时，可在 Actions 页面手动运行 **Sync plugin index**。
 
 ## 命令与配置
 
