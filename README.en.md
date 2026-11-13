@@ -6,7 +6,7 @@
 
 `dsh-enhancement-switches` adds three independent switches above the DeepSeek Harness message box. Use **Ralph Loop** for repeated testing, **Agent Teams** for parallel work, and **Codex Subagent** to delegate a task to Codex. Each conversation saves its own settings.
 
-**DeepSeek Harness `0.2.2-rc.2`** (Enhancement Switches v0.1.4)
+**This branch requires DeepSeek Harness `0.2.2-rc.2` or later.** Tested on `0.2.2-rc.2`.
 
 ## How to use it
 
@@ -61,6 +61,7 @@ In **Plugins → Add Plugin**, select the **official npm registry** and paste th
 
 | DeepSeek Harness | Enhancement Switches | Git install address |
 | --- | --- | --- |
+| `>=0.2.2-rc.2` | rc.2 maintenance branch | `git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.2.2-rc.2` |
 | `0.2.2-rc.2` | [v0.1.4](https://github.com/lonelycrab888/dsh-enhancement-switches/releases/tag/v0.1.4) | `git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.1.4` |
 | `0.2.2-rc.1` | [v0.1.3](https://github.com/lonelycrab888/dsh-enhancement-switches/releases/tag/v0.1.3) | `git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.1.3` |
 
@@ -70,10 +71,10 @@ Restart Desktop if prompted and confirm Enhancement Switches is enabled. Disable
 
 ### Web and local development
 
-Web can install a pinned Git tag directly. For rc.2, run:
+For rc.2 or later, install the rc.2 maintenance branch in the Web profile:
 
 ```sh
-dsh plugin --profile web add 'git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.1.4'
+dsh plugin --profile web add 'git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.2.2-rc.2'
 dsh web
 ```
 

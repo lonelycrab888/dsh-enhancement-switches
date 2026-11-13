@@ -6,7 +6,7 @@
 
 给 DeepSeek Harness 的对话输入框加上三个独立开关：**Ralph Loop** 用于反复验证，**Agent Teams** 用于团队分工，**Codex Subagent** 用于把一项任务交给 Codex。每个对话单独保存设置。
 
-**适用版本：DeepSeek Harness `0.2.2-rc.2`**（增强开关 v0.1.4）
+**当前分支要求 DeepSeek Harness `0.2.2-rc.2` 或更高版本。** 已在 `0.2.2-rc.2` 实测。
 
 ## 这样用
 
@@ -61,6 +61,7 @@ https://raw.githubusercontent.com/lonelycrab888/dsh-enhancement-switches/main/pl
 
 | DeepSeek Harness | 增强开关 | Git 安装地址 |
 | --- | --- | --- |
+| `>=0.2.2-rc.2` | rc.2 维护分支 | `git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.2.2-rc.2` |
 | `0.2.2-rc.2` | [v0.1.4](https://github.com/lonelycrab888/dsh-enhancement-switches/releases/tag/v0.1.4) | `git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.1.4` |
 | `0.2.2-rc.1` | [v0.1.3](https://github.com/lonelycrab888/dsh-enhancement-switches/releases/tag/v0.1.3) | `git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.1.3` |
 
@@ -70,10 +71,10 @@ https://raw.githubusercontent.com/lonelycrab888/dsh-enhancement-switches/main/pl
 
 ### Web 和本地开发
 
-Web 端可直接安装固定标签。下面的命令适用于 rc.2：
+Web 端可直接安装 rc.2 维护分支，适用于 `0.2.2-rc.2` 或更高版本：
 
 ```sh
-dsh plugin --profile web add 'git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.1.4'
+dsh plugin --profile web add 'git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.2.2-rc.2'
 dsh web
 ```
 
