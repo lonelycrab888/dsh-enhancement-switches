@@ -133,5 +133,9 @@
     "check": "npm run typecheck && npm test && npm run build",
     "smoke": "node scripts/smoke.mjs",
     "test:lifecycle": "node scripts/lifecycle.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lonelycrab888/dsh-enhancement-switches.git"
   }
 }
