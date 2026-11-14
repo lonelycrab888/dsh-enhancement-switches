@@ -62,10 +62,10 @@ https://raw.githubusercontent.com/lonelycrab888/dsh-enhancement-switches/main/pl
 | DeepSeek Harness | 增强开关 | Git 安装地址 |
 | --- | --- | --- |
 | `>=0.2.2-rc.2` | rc.2 维护分支 | `git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.2.2-rc.2` |
-| `>=0.2.2-rc.2` | [v0.1.5](https://github.com/lonelycrab888/dsh-enhancement-switches/releases/tag/v0.1.5) | `git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.1.5` |
+| `>=0.2.2-rc.2` | [v0.1.6](https://github.com/lonelycrab888/dsh-enhancement-switches/releases/tag/v0.1.6) | `git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.1.6` |
 | `0.2.2-rc.1` | [v0.1.3](https://github.com/lonelycrab888/dsh-enhancement-switches/releases/tag/v0.1.3) | `git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.1.3` |
 
-`#main` 安装主分支当前提交。需要自动选择兼容版本时，请使用上面的「发现」索引。rc.2 及以上用户也可以从 v0.1.5 Release 下载 `.tgz`，把本机绝对路径填入 **包名或地址**。
+`#main` 安装主分支当前提交。需要自动选择兼容版本时，请使用上面的「发现」索引。rc.2 及以上用户也可以从 v0.1.6 Release 下载 `.tgz`，把本机绝对路径填入 **包名或地址**。
 
 安装后按桌面端提示重启，并在插件页确认增强开关已启用。若官方 Ralph Loop 全局插件已开启，请关闭它以使用对话级开关。
 
@@ -89,7 +89,7 @@ npm pack
 Web 端在同一目录运行：
 
 ```sh
-dsh plugin --profile web add "$PWD/dsh-enhancement-switches-0.1.5.tgz"
+dsh plugin --profile web add "$PWD/dsh-enhancement-switches-0.1.6.tgz"
 ```
 
 ### 维护与发布

@@ -62,10 +62,10 @@ In **Plugins → Add Plugin**, select the **official npm registry** and paste th
 | DeepSeek Harness | Enhancement Switches | Git install address |
 | --- | --- | --- |
 | `>=0.2.2-rc.2` | rc.2 maintenance branch | `git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.2.2-rc.2` |
-| `>=0.2.2-rc.2` | [v0.1.5](https://github.com/lonelycrab888/dsh-enhancement-switches/releases/tag/v0.1.5) | `git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.1.5` |
+| `>=0.2.2-rc.2` | [v0.1.6](https://github.com/lonelycrab888/dsh-enhancement-switches/releases/tag/v0.1.6) | `git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.1.6` |
 | `0.2.2-rc.1` | [v0.1.3](https://github.com/lonelycrab888/dsh-enhancement-switches/releases/tag/v0.1.3) | `git+https://github.com/lonelycrab888/dsh-enhancement-switches.git#v0.1.3` |
 
-`#main` installs the current commit on the main branch. Use the Discover index to select a compatible version automatically. On rc.2 or later, you can also download the v0.1.5 release archive and enter its absolute path in **Package name or address**.
+`#main` installs the current commit on the main branch. Use the Discover index to select a compatible version automatically. On rc.2 or later, you can also download the v0.1.6 release archive and enter its absolute path in **Package name or address**.
 
 Restart Desktop if prompted and confirm Enhancement Switches is enabled. Disable the official global Ralph Loop plugin if it is active so the conversation switch controls Ralph.
 
@@ -89,7 +89,7 @@ npm pack
 For Web, install the package from the same directory:
 
 ```sh
-dsh plugin --profile web add "$PWD/dsh-enhancement-switches-0.1.5.tgz"
+dsh plugin --profile web add "$PWD/dsh-enhancement-switches-0.1.6.tgz"
 ```
 
 ### Maintenance and releases

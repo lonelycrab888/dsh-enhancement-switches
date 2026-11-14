@@ -1,6 +1,6 @@
 {
   "name": "dsh-enhancement-switches",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Per-conversation Ralph Loop, Agent Teams, and Codex Subagent switches for DeepSeek Harness.",
   "license": "MIT",
   "type": "module",
