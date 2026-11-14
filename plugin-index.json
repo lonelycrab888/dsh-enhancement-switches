@@ -20,6 +20,18 @@
       },
       "versions": [
         {
+          "version": "0.1.6",
+          "publishTimestamp": 1794646076,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/lonelycrab888/dsh-enhancement-switches",
+            "commit": "fb4b3a0c645602fc421614e84bbf12fd83424221"
+          },
+          "engines": {
+            "dsh": ">=0.2.2-rc.2"
+          }
+        },
+        {
           "version": "0.1.5",
           "publishTimestamp": 1794587873,
           "source": {
